@@ -26,7 +26,7 @@ SOFTWARE.
 import {AjvWrapper} from "./_ajvWrapper";
 import {BehaviorSubject} from "rxjs/Rx";
 import {default as TxArgs} from "./schemas/tx-args.schema";
-
+import {default as DefaultVO} from "./schemas/default-vo.schema";
 const _models = new WeakMap();
 const _validators = new WeakMap();
 export const _observers = new WeakMap();
@@ -52,7 +52,7 @@ export class TxValidator {
             schemas = {schemas: Array.isArray(schemas) ? schemas : [schemas]};
         }
 
-        const _baseSchema = schemas.schemas[schemas.schemas.length - 1];
+        const _baseSchema = schemas.schemas[schemas.schemas.length - 1] || DefaultVO;
         Object.defineProperty(this, "schema", {
             get: () => [].concat(schemas.schemas),
             enumerable: false,
