@@ -23,11 +23,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ############################################################################ */
-// todo: review for removal (async/await would make this superfluous)
-//== Polyfills Object.assign
-if (typeof Object.assign !== "function") {
-    Object.assign = require('object.assign/polyfill')();
-}
 export {TxPipe} from './txPipe';
 export {TxValidator} from './txValidator';
 export {TxWorkflow} from './txWorkflow';
