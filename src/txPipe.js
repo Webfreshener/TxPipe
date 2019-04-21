@@ -113,7 +113,6 @@ export class TxPipe {
                     } catch (e) {
                         _observers.get(_pipes.get(this).out).error(e);
                     }
-
                 }
             },
             error: (e) => {

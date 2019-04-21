@@ -74,8 +74,6 @@ describe("TxPipes tests", () => {
                 next: (d) => {
                     _sub.unsubscribe();
                     expect(`${d}`).toEqual(JSON.stringify(_p.txTap()));
-                    expect(`${d}`).toEqual(JSON.stringify(_p.toJSON()));
-                    expect(`${d}`).toEqual(_p.toString());
                     done();
                 },
                 error: (e) => {
@@ -244,8 +242,8 @@ describe("TxPipes tests", () => {
             const _d = data[0];
             const _iterator = {
                 next: () => {
-                    return (_ival++ < 20) ? {
-                        value: _p.txWrite([_d]),
+                    return (_ival++ < 50) ? {
+                        value: _p.txWrite([data[0]]),
                         done: false,
                     } : {
                         value: _p.txClose(),
