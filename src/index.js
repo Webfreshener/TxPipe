@@ -23,6 +23,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ############################################################################ */
-export {TxPipe} from './txPipe';
-export {TxValidator} from './txValidator';
-export {TxWorkflow} from './txWorkflow';
+export {TxPipe as TxPipe} from './txPipe';
+export {TxValidator as TxValidator} from './txValidator';
+// export {TxWorkflow} from './txWorkflow';
