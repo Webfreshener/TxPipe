@@ -155,8 +155,6 @@ export class AjvWrapper {
         return this;
     }
 
-
-
     /**
      * retrieves ID attribute from schema
      * @param schema

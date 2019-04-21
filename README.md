@@ -38,7 +38,6 @@ Observable Transaction Pipes with JSON-Schema Validation
 | txWritable [getter] | | Returns write status of `pipe` |
 | txLink | target (Pipe), ...pipesOrSchemas | links `pipe` segment to direct output to target `pipe` |
 | txMerge | pipeOrPipes, schema | Merges multiple pipes into single output |
-| txOnce | | Informs `pipe` to close after first notification |
 | txPipe | ...pipesOrSchemas | Returns new chained `pipe` segment |
 | txSample | nth | Returns product of Nth occurrence of `pipe` execution |
 | txSplit | ...pipesOrSchemas | Creates array of new `pipe` segments that run in parallel |

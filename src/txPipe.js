@@ -135,7 +135,6 @@ export class TxPipe {
         );
 
         // stores config & state
-
         _pipes.set(this, {
             // references the intake Validator object
             vo: vo,

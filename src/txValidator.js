@@ -117,7 +117,7 @@ export class TxValidator {
             return;
         }
 
-        if  (this.validate(data)) {
+        if (this.validate(data)) {
             _models.set(this, data);
             _observers.get(this).next(this);
         } else {
