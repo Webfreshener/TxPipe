@@ -24,9 +24,13 @@ SOFTWARE.
 
 ############################################################################ */
 import {_observers, TxValidator} from "./txValidator";
+import {default as DefaultVOSchema} from "./schemas/default-vo.schema";
 
 const _pipes = new WeakMap();
 const _cache = new WeakMap();
+const _defaultVO = new TxValidator({
+    schemas: [DefaultVOSchema],
+});
 
 /**
  * Fills callbacks array to enforce 2 callback minimum
@@ -46,17 +50,31 @@ const _fillCallback = (callbacks) => {
  * TxPipe Class
  */
 export class TxPipe {
-    constructor(vo, ...pipesOrSchemas) {
-        if (!pipesOrSchemas.length) {
-            throw "Pipe requires at least one schema or pipe element";
+    constructor(vo = _defaultVO, ...pipesOrSchemas) {
+        if (!(vo instanceof TxValidator)) {
+            if (TxValidator.validateSchemas(vo)) {
+                vo = new TxValidator(vo);
+            } else {
+                pipesOrSchemas[0].splice(0, 0, vo);
+                vo = _defaultVO;
+            }
         }
 
-        // todo: review and doc the use case for this?
+        if (!pipesOrSchemas.length) {
+            pipesOrSchemas = [[
+                {
+                    callback: (d) => d,
+                    schema: DefaultVOSchema,
+                },
+            ]];
+        }
+
         if (Array.isArray(pipesOrSchemas[0])) {
             pipesOrSchemas = pipesOrSchemas[0];
         }
 
         _cache.set(this, []);
+
         const _sub = vo.subscribe({
             next: (data) => {
                 // enforces JSON formatting if feature is present
@@ -88,12 +106,7 @@ export class TxPipe {
                 /**
                  * tests if object and if object is writable
                  */
-                if ((typeof _t) === "object" && !_pipes.get(this).out.isFrozen) {
-                    if (_pipes.get(this).once) {
-                        // if this is a `once` operation, we reset the flag and close the pipe
-                        _pipes.get(this).once = false;
-                        this.txClose();
-                    }
+                if ((typeof _t) === "object" && this.txWritable) {
                     // else we set the model for validation
                     try {
                         _pipes.get(this).out.model = _t.toJSON ? _t.toJSON() : _t;
@@ -108,7 +121,7 @@ export class TxPipe {
                 _observers.get(_pipes.get(this).out).error(e);
             },
             // closes pipe on `complete` notification
-            complete: this.txClose,
+            complete: () => this.txClose(),
         });
 
         // accepts a TxPipe, an Object with a schema param, or a straight-up schema
@@ -135,13 +148,21 @@ export class TxPipe {
             // references the output schema
             schema: _s,
             // references the output validator
-            out: new TxValidator({
-                schemas: Array.isArray(_s) ? _s : [_s],
-            }),
-            // holder for `once` flag
-            once: false,
+            out: (() => {
+                const _txV = new TxValidator({
+                    schemas: Array.isArray(_s) ? _s : [_s],
+                });
+                // unsubscribe all observers on complete notification (freeze/close)
+                _txV.subscribe({
+                    complete: () => {
+                        _pipes.get(this).listeners.forEach((_l) => _l.unsubscribe());
+                        _pipes.get(this).listeners = [];
+                    },
+                });
+                return _txV;
+            })(),
             // holder for rxjs notification handlers array
-            listener: [_sub],
+            listeners: [_sub],
             // holder for linked pipe references
             links: new WeakMap(),
             // initializes callback handler
@@ -204,7 +225,7 @@ export class TxPipe {
         // creates observer and stores it to links map for `txPipe`
         const _sub = this.subscribe({
             next: (data) => {
-                let _res = data.toJSON();
+                let _res = data.toJSON ? data.toJSON() : data;
                 // applies all callbacks and writes to target `txPipe`
                 target.txWrite(callbacks.reduce((_cb) => _res = _cb(_res)));
             },
@@ -213,6 +234,26 @@ export class TxPipe {
         });
 
         _pipes.get(this).links.set(target, _sub);
+        return this;
+    }
+
+    /**
+     * Unlink `txPipe` segment from target `txPipe`
+     * @param target
+     * @returns {TxPipe}
+     */
+    txUnlink(target) {
+        if (!(target instanceof TxPipe)) {
+            throw `item for "target" was not a TxPipe`;
+        }
+
+        const _sub = _pipes.get(this).links.get(target);
+
+        if (_sub) {
+            _sub.unsubscribe();
+            _pipes.get(this).links.delete(target);
+        }
+
         return this;
     }
 
@@ -238,26 +279,28 @@ export class TxPipe {
      * @returns {*}
      */
     txSplit(...schemasOrPipes) {
-        return schemasOrPipes[0].map((o) => {
-            return this.txPipe([o])
-        });
+        return schemasOrPipes[0].map((o) => this.txPipe(o));
     }
 
     /**
      * Merges multiple pipes into single output
      * @param pipeOrPipes
      * @param schema
+     * @param callback
      * @returns {TxPipe}
      */
-    txMerge(pipeOrPipes, schema) {
-        const _out = this.txPipe(schema);
+    txMerge(pipeOrPipes, schema, callback) {
+        const _out = this.txPipe({schemas: [schema]});
         (Array.isArray(pipeOrPipes) ? pipeOrPipes : [pipeOrPipes])
             .forEach((_p) => {
-                _pipes.get(this).listener.push(
+                _pipes.get(this).listeners.push(
                     _p.subscribe({
                         next: (d) => {
-                            _out.txWrite(d.toJSON ? d.toJSON() : d)
-                        }
+                            d = d.toJSON ? d.toJSON() : d;
+                            _out.txWrite(
+                                callback && (typeof callback) === "function" ? callback(d) : d
+                            );
+                        },
                     })
                 );
             });
@@ -292,37 +335,13 @@ export class TxPipe {
         return new TxPipe(vo, {schema: schema, callback: cb});
     }
 
-    /**
-     * Unlink `txPipe` segment from target `txPipe`
-     * @param target
-     * @returns {TxPipe}
-     */
-    txUnlink(target) {
-        if (!(target instanceof TxPipe)) {
-            throw `item for "target" was not a TxPipe`;
-        }
-
-        const _sub = _pipes.get(this).links.get(target);
-
-        if (_sub) {
-            _sub.unsubscribe();
-            _pipes.get(this).links.delete(target);
-        }
-
-        return this;
-    }
 
     /**
      * Terminates input on `txPipe` segment. This is irrevocable
      * @returns {TxPipe}
      */
     txClose() {
-        // unsubscribe all observers
-        _pipes.get(this).listener.forEach((_l) => _l.unsubscribe());
-        setTimeout(() => {
-            _pipes.get(this).out.freeze();
-        }, 1);
-
+        _pipes.get(this).out.freeze();
         return this;
     }
 
@@ -331,16 +350,7 @@ export class TxPipe {
      * @returns {boolean}
      */
     get txWritable() {
-        return _pipes.get(this).out.isFrozen;
-    }
-
-    /**
-     * Informs `txPipe` to close after first notification
-     * @returns {TxPipe}
-     */
-    txOnce() {
-        _pipes.get(this).once = true;
-        return this;
+        return !_pipes.get(this).out.isFrozen;
     }
 
     /**
@@ -355,15 +365,19 @@ export class TxPipe {
             _intvl.clearInterval();
         }
 
-        _pipes.get(this).tO = setInterval(() => {
-            if (_cache.get(this).length) {
-                const _func = _cache.get(this).pop();
-                if ((typeof _func) === "function") {
-                    _pipes.get(this).out.model = _func();
-                }
-            }
-        }, rate);
-
+        if (rate >= 0) {
+            _pipes.get(this).tO = setInterval(
+                () => {
+                    if (_cache.get(this).length) {
+                        const _func = _cache.get(this).pop();
+                        if ((typeof _func) === "function") {
+                            _pipes.get(this).out.model = _func();
+                        }
+                    }
+                },
+                parseInt(rate, 10)
+            );
+        }
         return this;
     }
 
@@ -387,7 +401,7 @@ export class TxPipe {
             throw "handler required for TxPipe::subscribe";
         }
 
-        return _observers.get(_pipes.get(this).out).subscribe(handler);
+        return _pipes.get(this).out.subscribe(handler);
     }
 
     /**

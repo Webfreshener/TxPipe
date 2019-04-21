@@ -1,10 +1,8 @@
-import {TxValidator} from "./txValidator";
+import {_observers, TxValidator} from "./txValidator";
 import {TxPipe} from "./txPipe";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as JSONSchemaDraft04} from "../fixtures/json-schema-draft-04";
 import {default as data} from "../fixtures/pipes-test.data";
-
-jest.useFakeTimers();
 
 const _schemaLess = Object.assign({}, basicCollection);
 delete _schemaLess.$schema;
@@ -19,315 +17,317 @@ const _pipesOrSchemas = [{
     },
 }];
 
+const _vo = {
+    schema: _pipesOrSchemas[0].schema,
+};
+
 describe("TxPipes tests", () => {
-    let _p;
-    let _vo;
+    describe("TxtPipes API Tests", () => {
+        it("should provide a schema", () => {
+            const _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            expect(JSON.stringify(_p.txSchema[0])).toEqual(
+                JSON.stringify(_pipesOrSchemas[0].schema)
+            );
+        });
+        it("should exec and not modify contents", () => {
+            const _p = new TxPipe(_vo.schema,_pipesOrSchemas);
+            expect(_p.exec(data).length).toEqual(3);
+            expect(Object.keys(_p.txTap()).length).toEqual(0);
+        });
 
-    beforeEach(() => {
-        _vo = new TxValidator({schemas: [_schemaLess]});
-        _p = new TxPipe(_vo, _pipesOrSchemas);
-    });
 
-    it("should provide a schema", () => {
-        expect(JSON.stringify(_p.txSchema[0])).toEqual(JSON.stringify(_pipesOrSchemas[0].schema));
-    });
-
-    it("should intake and output data", (done) => {
-        const _sub = _p.subscribe({
-            next: (d) => {
-                _sub.unsubscribe();
-                expect(`${d}`).toEqual(JSON.stringify(_p.txTap()));
-                expect(`${d}`).toEqual(JSON.stringify(_p.toJSON()));
-                expect(`${d}`).toEqual(_p.toString());
+        it("should work with Promises", (done) => {
+            const _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            _p.txPromise(data).then((res) => {
+                expect(res.txTap().length).toEqual(3);
                 done();
-            },
-            error: (e) => {
-                _sub.unsubscribe();
-                done(e);
-            },
-        });
-        _p.txWrite(data);
-    });
-
-    it("should provide errors", (done) => {
-        const _sub = _p.subscribe({
-            next: (d) => {
-                _sub.unsubscribe();
-                done("pipe should have errored");
-            },
-            error: (e) => {
-                _sub.unsubscribe();
-                expect(_p.txErrors !== null).toBe(true);
-                done();
-            },
+            }, done).catch(done);
         });
 
-        _p.txWrite(data[0]);
-    });
-
-    it("should transform data with callback", (done) => {
-        const _sub = _p.subscribe({
-            next: (d) => {
-                _sub.unsubscribe();
-                expect(d.model.length).toEqual(3);
-                expect(_p.txTap().length).toEqual(3);
-                done();
-            },
-            error: (e) => {
-                _sub.unsubscribe();
-                done(e);
-            }
-        });
-
-        _p.txWrite(data);
-    });
-
-    it("should split pipe", () => {
-        const _config = [
-            {
-                schema: _vo.schema,
-                callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
-            },
-            {
-                schema: _vo.schema,
-                callback: (d) => d.map((m) => Object.assign(m, {age: 99})),
-            },
-        ];
-
-        const _cb = jest.fn();
-
-        const _split = _p.txSplit(_config);
-        _split.forEach((pipe) => {
-            pipe.subscribe(_cb);
-        });
-
-        _p.txWrite(data);
-
-        jest.advanceTimersByTime(100);
-        expect(_cb).toHaveBeenCalledTimes(2);
-        expect(_split[0].txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-        expect(_split[1].txTap()[0].age).toEqual(99);
-    });
-
-    it("should exec multiple pipes inline", () => {
-        const _p1 = new TxPipe(
-            new TxValidator({schemas: [_vo.schema]}),
-            [{
-                schema: [].concat(_vo.schema),
-                callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
-            }]);
-
-        const _p2 = new TxPipe(
-            new TxValidator({schemas: [_vo.schema]}),
-            [{
-                schema: [].concat(_vo.schema),
-                callback: (d) => d.map((m) => Object.assign(m, {age: 99})),
-            }]);
-
-        const _inline = _p.txPipe(_p1, _p2);
-
-        _inline.txWrite(data);
-
-        expect(JSON.stringify(_inline.txSchema)).toEqual(JSON.stringify(_vo.schema));
-        expect(_inline.txTap().length).toEqual(data.length);
-        expect(_inline.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-        expect(_inline.txTap()[0].age).toEqual(99);
-        expect(_inline.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-        expect(_inline.txTap()[data.length - 1].age).toEqual(99);
-
-    });
-
-    it("should merge multiple pipes into a single output", () => {
-        const _p1 = new TxPipe(
-            new TxValidator({schemas: [_vo.schema]}), {
-                schema: _vo.schema,
-                callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
+        it("should provide errors", (done) => {
+            const _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            const _sub = _p.subscribe({
+                next: (d) => {
+                    _sub.unsubscribe();
+                    done("pipe should have errored");
+                },
+                error: (e) => {
+                    _sub.unsubscribe();
+                    expect(_p.txErrors !== null).toBe(true);
+                    done();
+                },
             });
 
-        const _p2 = new TxPipe(
-            new TxValidator({schemas: [_vo.schema]}), {
-                schema: _vo.schema,
-                callback: (d) => d.map((m) => Object.assign(m, {age: 99}))
-            }
-        );
-
-        const _merged = _p.txMerge([_p1, _p2], _vo.schema, (d) => {
-            return d.map((m) => Object.assign(m, {active: false}));
+            _p.txWrite(data[0]);
         });
-
-        const _cb = jest.fn();
-        _merged.subscribe(_cb);
-
-        _p1.txWrite(data);
-
-        jest.advanceTimersByTime(100);
-        expect(_cb).toHaveBeenCalledTimes(1);
-
-        expect(_merged.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-        expect(_merged.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-
-        _p2.txWrite(data);
-
-        jest.advanceTimersByTime(100);
-        expect(_cb).toHaveBeenCalledTimes(2);
-
-        expect(_merged.txTap().length).toEqual(data.length);
-        expect(_merged.txTap()[0].age).toEqual(99);
-        expect(_merged.txTap()[data.length - 1].age).toEqual(99);
     });
 
-    it("should close", () => {
-        const _sub = _p.subscribe({
-            next: () => {
-                // will close on first invocation
-                _p.txClose();
-            },
+    describe("TxPipes Data Tests", () => {
+        let _p;
+
+        beforeEach(() => {
+            _p = new TxPipe(_vo.schema, _pipesOrSchemas);
         });
 
-        data.forEach((d) => {
-            _vo.model = _vo.model.concat(d);
+        it("should intake and output data", (done) => {
+            const _sub = _p.subscribe({
+                next: (d) => {
+                    _sub.unsubscribe();
+                    expect(`${d}`).toEqual(JSON.stringify(_p.txTap()));
+                    expect(`${d}`).toEqual(JSON.stringify(_p.toJSON()));
+                    expect(`${d}`).toEqual(_p.toString());
+                    done();
+                },
+                error: (e) => {
+                    _sub.unsubscribe();
+                    done(e);
+                },
+            });
+            _p.txWrite(data);
         });
 
-        expect(_p.txTap().length).toEqual(1);
-        expect(_p.txWritable).toBe(false);
-    });
+        it("should transform data with callback", (done) => {
+            const _sub = _p.subscribe({
+                next: (d) => {
+                    _sub.unsubscribe();
+                    expect(d.model.length).toEqual(3);
+                    expect(_p.txTap().length).toEqual(3);
+                    done();
+                },
+                error: (e) => {
+                    _sub.unsubscribe();
+                    done(e);
+                }
+            });
 
-    it("should exec and not modify contents", () => {
-        expect(_p.exec(data).length).toEqual(3);
-        expect(Object.keys(_p.txTap()).length).toEqual(0);
-    });
+            _p.txWrite(data);
+        });
 
+        it("should split pipe", () => {
 
-    it("should limit occurrences of callback to single instance", () => {
-        const _cb = jest.fn();
-        let _cnt = 0;
-        const _sub = _p.txOnce().subscribe({
-            next: (d) => {
-                _cnt++;
+            const _config = [
+                {
+                    callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
+                },
+                {
+                    callback: (d) => d.map((m) => Object.assign(m, {age: 99})),
+                },
+            ].map((o) => Object.assign(o, _vo.schema));
+
+            const _cb = jest.fn();
+            _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            const _split = _p.txSplit(_config);
+            _split.forEach(function(pipe) {
+                pipe.subscribe({next: () => _cb()});
+            });
+            _p.txWrite(data);
+            expect(_cb).toHaveBeenCalledTimes(2);
+            expect(_split[0].txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+            expect(_split[1].txTap()[0].age).toEqual(99);
+        });
+
+        it("should exec multiple pipes inline", () => {
+            const _p1 = new TxPipe(
+                new TxValidator( _vo.schema),
+                [{
+                    schema: [].concat(_vo.schema),
+                    callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
+                }]);
+
+            const _p2 = new TxPipe(
+                new TxValidator(_vo.schema),
+                [{
+                    schema: [].concat(_vo.schema),
+                    callback: (d) => d.map((m) => Object.assign(m, {age: 99})),
+                }]);
+
+            const _inline = _p.txPipe(_p1, _p2);
+
+            _inline.txWrite(data);
+
+            expect(JSON.stringify(_inline.txSchema[0])).toEqual(JSON.stringify(_vo.schema));
+            expect(_inline.txTap().length).toEqual(data.length);
+            expect(_inline.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+            expect(_inline.txTap()[0].age).toEqual(99);
+            expect(_inline.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+            expect(_inline.txTap()[data.length - 1].age).toEqual(99);
+            _inline.txClose();
+        });
+
+        it("should throttle notifications based on time interval", () => {
+            const _cb = jest.fn();
+            const _sub = _p.txThrottle(150).subscribe(() => _cb());
+            data.forEach((d) => {
+                _p.txWrite([d]);
+            });
+
+            expect(_p.txErrors).toEqual(null);
+            let _cnt = 0;
+            const _ivl = setInterval(() => {
+                expect(_cb).toHaveBeenCalledTimes(_cnt++);
+                if (_cnt === data.length) {
+                    clearInterval(_ivl);
+                    _sub.unsubscribe();
+                }
+            }, 151);
+        });
+
+        it("should sample pipe data", () => {
+            const _cb = jest.fn();
+            _p.txSample(3).subscribe({
+                next: () => _cb(),
+                error: console.log,
+            });
+
+            data.slice(0,4).forEach((m) => {
+                _p.txWrite([m]);
+            });
+
+            expect(_cb).toHaveBeenCalledTimes(1);
+        });
+
+        it("should clone existing `pipe`", () => {
+            let _cnt = 0;
+
+            const _h = () => _cnt++;
+
+            const _sub1 = _p.subscribe(_h);
+            const _sub2 = _p.txClone().subscribe(_h);
+
+            _p.txWrite(data);
+            expect(_cnt).toEqual(2);
+            _sub1.unsubscribe();
+            _sub2.unsubscribe();
+        });
+
+        it("should link and unlink pipes", () => {
+            const _cb = jest.fn();
+            const _TxValidator = new TxValidator({schemas: [basicCollection]});
+            const _link = new TxPipe(_TxValidator, {schemas: [basicCollection]});
+
+            _p.txLink(_link, (d) => {
                 _cb();
+                return d;
+            });
 
-                if (_cnt === 1) {
-                    _vo.model = data;
+            _p.txWrite(data);
+
+            expect(_p.txErrors).toEqual(null);
+
+            expect(_cb).toHaveBeenCalledTimes(1);
+
+            // we capture state for comparison
+            const _state = `${_p}`;
+
+            expect(`${_link}`).toEqual(`${_state}`);
+            expect(`${_link}` === `${_p}`).toBe(true);
+
+            _p.txUnlink(_link);
+
+            // this will add an item to _p but not to _link
+            _p.txWrite(_p.txTap().concat({
+                name: "Added Item",
+                active: true,
+                age: 100,
+            }));
+
+            expect(_p.txErrors).toEqual(null);
+
+            // we expect to discover no further executions and the state to be unchanged
+            expect(_cb).toHaveBeenCalledTimes(1);
+            expect(`${_link}`).toEqual(`${_state}`);
+            expect(`${_link}` === `${_p}`).toBe(false);
+        });
+
+        it("should be observable", (done) => {
+            let _ival = 0;
+            const _d = data[0];
+            const _iterator = {
+                next: () => {
+                    return (_ival++ < 20) ? {
+                        value: _p.txWrite([_d]),
+                        done: false,
+                    } : {
+                        value: _p.txClose(),
+                        done: true,
+                    }
+                },
+            };
+
+            _p.subscribe({
+                next: () => {
+                    _iterator.next()
+                },
+                error: (e) => done(e),
+                complete: () => {
+                    done()
+                },
+            });
+
+            _iterator.next();
+        });
+
+        it("should close", () => {
+            const _cb = jest.fn();
+            const _sub = _p.subscribe({
+                next: () => {
+                    // will close on first invocation
+                    _p.txClose();
+                    _cb();
+                },
+                error: (e) => {
+                    console.log(e);
+                    _sub.unsubscribe();
+                },
+            });
+
+            data.forEach((d) => {
+                _p.txWrite(Array.isArray(_p.txTap()) ? _p.txTap().concat(d) : [d]);
+            });
+
+            expect(_p.txErrors).toEqual(null);
+            expect(_p.txTap().length).toEqual(1);
+            expect(_cb).toHaveBeenCalledTimes(1);
+            expect(_p.txWritable).toBe(false);
+            _sub.unsubscribe();
+        });
+
+
+
+        it("should merge multiple pipes into a single output", () => {
+            const _p1 = new TxPipe(_vo.schema, {
+                    schema: _vo.schema,
+                    callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
+                });
+
+            const _p2 = new TxPipe(_vo.schema, {
+                    schema: _vo.schema,
+                    callback: (d) => d.map((m) => Object.assign(m, {age: 99}))
                 }
+            );
 
-                expect(d.model.length).toEqual(3);
-            },
-            error: (e) => {
-                _sub.unsubscribe();
-                done(e);
-            }
+            const _merged = _p.txMerge([_p1, _p2], {schemas: _vo.schema}, (d) => {
+                return d.map((m) => Object.assign(m, {active: false}));
+            });
+
+            const _cb = jest.fn();
+            _merged.subscribe(_cb);
+
+            _p1.txWrite(data);
+
+            expect(_cb).toHaveBeenCalledTimes(1);
+
+            expect(_merged.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+            expect(_merged.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+
+            _p2.txWrite(data);
+
+            expect(_cb).toHaveBeenCalledTimes(2);
+
+            expect(_merged.txTap().length).toEqual(data.length);
+            expect(_merged.txTap()[0].age).toEqual(99);
+            expect(_merged.txTap()[data.length - 1].age).toEqual(99);
         });
-
-        _vo.model = data;
-
-        jest.advanceTimersByTime(100);
-        expect(_cb).toHaveBeenCalledTimes(1);
     });
 
-    it("should work with Promises", (done) => {
-        _p.txPromise(data).then((res) => {
-            expect(res.txTap().length).toEqual(3);
-            done();
-        }, done).catch(done);
-    });
-
-    it("should throttle notifications based on time interval", () => {
-        let _cnt = 0;
-        const _sub = _p.txThrottle(150).subscribe({
-            next: (d) => {
-                if ((++_cnt) <= 3) {
-                    _vo.model = _vo.model.concat({
-                        name: `New Item ${_cnt}`,
-                        active: true,
-                        age: _cnt,
-                    });
-                }
-            },
-        });
-
-        _vo.model = data;
-
-        jest.advanceTimersByTime(200);
-        expect(_cnt).toEqual(1);
-        jest.advanceTimersByTime(200);
-        expect(_cnt).toEqual(2);
-        jest.advanceTimersByTime(200);
-        expect(_cnt).toEqual(4);
-        expect(_p.txTap().length).toEqual(6);
-        _sub.unsubscribe();
-    });
-
-    it("should sample pipe data", () => {
-        let _cnt = 0;
-        _p.txSample(3).subscribe({
-            next: () => {
-                _cnt++;
-            },
-            error: console.log,
-        });
-
-        _p.txWrite(data);
-        _p.txWrite(data);
-        _p.txWrite(data);
-        jest.advanceTimersByTime(200);
-        expect(_cnt).toEqual(1);
-    });
-
-    it("should clone existing `pipe`", () => {
-        let _cnt = 0;
-
-        const _h = () => _cnt++;
-
-        _p.subscribe(_h);
-        _p.txClone().subscribe(_h);
-
-        _vo.model = data;
-
-        jest.advanceTimersByTime(200);
-        expect(_cnt).toEqual(2);
-    });
-
-    it("should link and unlink pipes", () => {
-        const _cb = jest.fn();
-        const _TxValidator = new TxValidator({schemas: [basicCollection]});
-        const _link = new TxPipe(_TxValidator, basicCollection);
-
-        _p.txLink(_link, [(d) => {
-            _cb();
-            return d;
-        }]);
-
-        jest.advanceTimersByTime(100);
-
-        _vo.model = data;
-
-        expect(_vo.errors).toEqual(null);
-
-        expect(_cb).toHaveBeenCalledTimes(1);
-
-
-        jest.advanceTimersByTime(100);
-
-        // we capture state for comparison
-        const _state = `${_p}`;
-
-        expect(`${_link}`).toEqual(`${_state}`);
-        expect(`${_link}` === `${_p}`).toBe(true);
-
-        _p.txUnlink(_link);
-
-        // this will add an item to _p but not to _link
-        _vo.model = _vo.model.concat({
-            name: "Added Item",
-            active: true,
-            age: 100,
-        });
-
-        expect(_vo.errors).toEqual(null);
-
-        // we expect to discover no further executions and the state to be unchanged
-        expect(_cb).toHaveBeenCalledTimes(1);
-        expect(`${_link}`).toEqual(`${_state}`);
-        expect(`${_link}` === `${_p}`).toBe(false);
-    });
 });

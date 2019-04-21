@@ -31,6 +31,25 @@ import Ajv from "ajv";
 const _validators = new WeakMap();
 const _ajvRef = new WeakMap();
 const _idRef = new WeakMap();
+/**
+ *
+ * @param $ajv
+ * @param schema
+ * @param schemaId
+ */
+const addSchema = ($ajv, schema, schemaId) => {
+    if (!schemaId) {
+        schemaId = AjvWrapper.getSchemaID(schema);
+    }
+    if (_idRef.get($ajv).indexOf(schemaId) === -1) {
+        _idRef.get($ajv).splice(_idRef.get($ajv).length, 0, schemaId);
+        $ajv.addSchema(schema, schemaId);
+    }
+};
+
+const addMetaSchema = ($ajv, schema) => {
+    $ajv.addMetaSchema(schema);
+};
 
 /**
  * Wrapper for Ajv JSON-PropertiesModel Validator
@@ -78,6 +97,7 @@ export class AjvWrapper {
                     schemas.schemas = schemas.schemas.map(_procSchema);
                 } else {
                     schemas.schemas = _procSchema(schemas.schemas);
+
                 }
             } else {
                 if (Array.isArray(schemas)) {
@@ -116,6 +136,7 @@ export class AjvWrapper {
         }
 
         let _res = false;
+
         try {
             _res = this.$ajv.validate(path, value);
         } catch (e) {
@@ -123,6 +144,18 @@ export class AjvWrapper {
         }
         return _res;
     }
+
+    /**
+     *
+     * @param schema
+     * @param schemaId
+     */
+    addSchema(schema, schemaId=false) {
+        addSchema(this, schema, schemaId);
+        return this;
+    }
+
+
 
     /**
      * retrieves ID attribute from schema
@@ -137,6 +170,22 @@ export class AjvWrapper {
 
 /**
  *
+ * @param $ajv
+ * @param _s
+ * @private
+ */
+const _metaTest = ($ajv, _s) => {
+    if (_s.hasOwnProperty("meta")) {
+        if (Array.isArray(_s.meta)) {
+            _s.meta.forEach((meta) => {
+                addMetaSchema($ajv, meta);
+            });
+        }
+    }
+};
+
+/**
+ *
  * @param schemas
  * @param opts
  * @returns {ajv | ajv.Ajv}
@@ -145,34 +194,18 @@ const createAJV = (schemas, opts) => {
     const _ajv = new Ajv(opts);
     _idRef.set(_ajv, []);
     if (schemas) {
-        if (schemas.hasOwnProperty("meta")) {
-            if (Array.isArray(schemas.meta)) {
-                schemas.meta.forEach((meta) => {
-                    _ajv.addMetaSchema(meta);
-                });
-            }
-        }
-
+        _metaTest(_ajv, schemas);
         // todo: review performance of addSchema
-        if (schemas.hasOwnProperty("schemas")) {
-            let schemaID;
-            if (Array.isArray(schemas.schemas)) {
-                schemas.schemas.forEach((schema) => {
-                    schemaID = AjvWrapper.getSchemaID(schema);
-                    if (_idRef.get(_ajv).indexOf(schemaID) === -1) {
-                        _idRef.get(_ajv).splice(_idRef.get(_ajv).length, 0, schemaID);
-                        _ajv.addSchema(schema, schemaID);
-                    }
-
-                });
-            } else {
-                if ((typeof schemas.schemas) === "string") {
-                    schemaID = AjvWrapper.getSchemaID(schemas.schema);
-                    if (_idRef.get(_ajv).indexOf(schemaID) === -1) {
-                        _idRef.get(_ajv).splice(_idRef.get(_ajv).length, 0, schemaID);
-                        _ajv.addSchema(schemas.schemas, schemaID);
-                    }
-                }
+        schemas = (schemas.hasOwnProperty("schemas")) ? schemas.schemas : schemas;
+        if (Array.isArray(schemas)) {
+            schemas.forEach((schema) => {
+                _metaTest(_ajv, schema);
+                addSchema(_ajv, schema);
+            });
+        } else {
+            if ((typeof schemas).match(/^(object|boolean)$/)) {
+                _metaTest(_ajv, schemas);
+                addSchema(_ajv, schemas);
             }
         }
     }

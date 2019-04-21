@@ -17,7 +17,7 @@ export const basicModel = {
 
 export const basicCollection = {
     $id: "root#",
-    // $schema: "http://json-schema.org/draft-04/schema#",
+    schema: "http://json-schema.org/draft-07/schema#",
     type: "array",
     items: {
         type: "object",

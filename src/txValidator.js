@@ -25,20 +25,27 @@ SOFTWARE.
 ############################################################################ */
 import {AjvWrapper} from "./_ajvWrapper";
 import {BehaviorSubject} from "rxjs/Rx";
-import {TxPipe} from "./txPipe";
 import {default as TxArgs} from "./schemas/tx-args.schema";
 
 const _models = new WeakMap();
 const _validators = new WeakMap();
 export const _observers = new WeakMap();
 
-// const argsValidator = createAjv({schemas: [TxArgs]});
 const argsValidator = new AjvWrapper({schemas: [TxArgs]});
 
 export class TxValidator {
+    /**
+     *
+     * @param schemas
+     * @returns {boolean}
+     */
+    static validateSchemas(schemas) {
+        return argsValidator.exec(TxArgs.$id, schemas);
+    }
+
     constructor(schemas, options) {
-        if (!argsValidator.exec(TxArgs.$id, schemas)) {
-            throw argsValidator.errors;
+        if (!TxValidator.validateSchemas(schemas)) {
+            throw "Unable to process schema"
         }
 
         if (!schemas.hasOwnProperty("schemas")) {
@@ -46,7 +53,6 @@ export class TxValidator {
         }
 
         const _baseSchema = schemas.schemas[schemas.schemas.length - 1];
-
         Object.defineProperty(this, "schema", {
             get: () => [].concat(schemas.schemas),
             enumerable: false,
@@ -59,20 +65,11 @@ export class TxValidator {
     }
 
     /**
-     *
-     * @param pipesOrSchemas
-     * @returns {TxPipe}
-     */
-    txPipe(...pipesOrSchemas) {
-        return new TxPipe(this, pipesOrSchemas);
-    }
-
-    /**
      * Applies Object.freeze to model and triggers complete notification for pipe
      * @returns {TxValidator}
      */
     freeze() {
-        Object.freeze(_models.get(this));
+        _models.set(Object.freeze(_models.get(this)));
         _observers.get(this).complete();
         return this;
     }
@@ -116,7 +113,11 @@ export class TxValidator {
      * @param data
      */
     set model(data) {
-        if (this.validate(data)) {
+        if (this.isFrozen) {
+            return;
+        }
+
+        if  (this.validate(data)) {
             _models.set(this, data);
             _observers.get(this).next(this);
         } else {
