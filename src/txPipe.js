@@ -63,7 +63,7 @@ export class TxPipe {
         if (!pipesOrSchemas.length) {
             pipesOrSchemas = [[
                 {
-                    callback: (d) => d,
+                    exec: (d) => d,
                     schema: DefaultVOSchema,
                 },
             ]];
@@ -75,6 +75,7 @@ export class TxPipe {
 
         _cache.set(this, []);
         const _self = this;
+
         const _sub = vo.subscribe({
             next: (data) => {
                 // enforces JSON formatting if feature is present
@@ -137,7 +138,11 @@ export class TxPipe {
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
         const _callbacks = _fillCallback(
             pipesOrSchemas.map(
-                (_p) => _p.exec ? _p.exec : (_p.callback || ((d) => d))
+                // (_p) => _p.exec ? _p.exec : (_p.callback || ((d) => d))
+                (_p) => (
+                    (d) => (_p.exec ? _p.exec : (_p.callback || ((_) => _)))
+                        .apply(_self, [d])
+                )
             ),
         );
 
@@ -326,7 +331,7 @@ export class TxPipe {
      */
     txClone() {
         const {vo, schema, cb} = _pipes.get(this);
-        return new TxPipe(vo, {schema: schema, callback: cb});
+        return new TxPipe(vo, {schema: schema, exec: (d) => cb(d)});
     }
 
 
@@ -368,6 +373,7 @@ export class TxPipe {
                             _pipes.get(this).out.model = _func();
                         }
                     }
+                    delete _pipes.get(this).tO;
                 },
                 parseInt(rate, 10)
             );
@@ -489,16 +495,16 @@ const _cbIterator = (...callbacks) => {
 const _cbRunner = (callbacks, data) => {
     const _it = _cbIterator(callbacks);
     let _done = false;
-    let _res = data;
+    let _value = data;
     while (!_done) {
-        const {done, value} = _it.next(_res);
-        _done = done;
-        _res = value;
+       let {done, value} = _it.next(_value);
+       _done = done;
+       _value = value;
     }
 
     // } catch (e) {
     //     _observers.get(_pipes.get(this).out).error(e);
     //     return false;
     // }
-    return _res;
-}
+    return _value;
+};
