@@ -304,8 +304,11 @@ describe("TxPipes tests", () => {
                 }
             );
 
-            const _merged = _p.txMerge([_p1, _p2], {schemas: _vo.schema}, (d) => {
-                return d.map((m) => Object.assign(m, {active: false}));
+            const _merged = _p.txMerge([_p1, _p2], {
+                schema: _vo.schema,
+                callback: (d) => d.map(
+                    (m) => Object.assign(m, {active: false})
+                )
             });
 
             const _cb = jest.fn();

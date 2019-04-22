@@ -283,26 +283,21 @@ export class TxPipe {
     /**
      * Merges multiple pipes into single output
      * @param pipeOrPipes
-     * @param schema
-     * @param callback
+     * @param pipeOrSchema
      * @returns {TxPipe}
      */
-    txMerge(pipeOrPipes, schema, callback) {
-        const _out = this.txPipe({schemas: [schema]});
-        (Array.isArray(pipeOrPipes) ? pipeOrPipes : [pipeOrPipes])
-            .forEach((_p) => {
-                _pipes.get(this).listeners.push(
-                    _p.subscribe({
-                        next: (d) => {
-                            d = d.toJSON ? d.toJSON() : d;
-                            _out.txWrite(
-                                callback && (typeof callback) === "function" ? callback(d) : d
-                            );
-                        },
+    txMerge(pipeOrPipes, pipeOrSchema = {schemas: [DefaultVOSchema]}) {
+        const _out = this.txPipe(pipeOrSchema);
+        _pipes.get(this).listeners = _pipes.get(this).listeners.concat(
+            // -- feeds output of map to listeners array
+            (Array.isArray(pipeOrPipes) ? pipeOrPipes : [pipeOrPipes])
+                .map((_p) => _p.subscribe((d) => {
+                        // -- all pipes now write to output tx
+                        _out.txWrite(d.toJSON ? d.toJSON() : d);
                     })
-                );
-            });
-
+                )
+        );
+        // -- returns output tx for observation
         return _out;
     }
 
