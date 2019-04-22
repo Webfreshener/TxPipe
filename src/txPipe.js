@@ -107,12 +107,20 @@ export class TxPipe {
                  * tests if object and if object is writable
                  */
                 if ((typeof _t) === "object" && this.txWritable) {
-                    // else we set the model for validation
-                    try {
-                        _pipes.get(this).out.model = _t.toJSON ? _t.toJSON() : _t;
-                    } catch (e) {
-                        _observers.get(_pipes.get(this).out).error(e);
+                    const _out = (_) => {
+                        // else we set the model for validation
+                        try {
+                            _pipes.get(this).out.model = _.toJSON ? _.toJSON() : _;
+                        } catch (e) {
+                            _observers.get(_pipes.get(this).out).error(e);
+                        }
+                    };
+
+                    if (_t.hasOwnProperty("then") && (typeof _t["then"]) === "function") {
+                        return _t.then((_) => _out(_));
                     }
+
+                    _out(_t);
                 }
             },
             error: (e) => {
@@ -164,17 +172,7 @@ export class TxPipe {
             // holder for linked pipe references
             links: new WeakMap(),
             // initializes callback handler
-            cb: (_res) => {
-                try {
-                    _callbacks.forEach((_cb) => {
-                        _res = _cb(_res);
-                    });
-                } catch (e) {
-                    _observers.get(_pipes.get(this).out).error(e);
-                    return false;
-                }
-                return _res;
-            },
+            cb: (_res=false) => _cbRunner(_callbacks, _res),
         });
     }
 
@@ -223,9 +221,12 @@ export class TxPipe {
         // creates observer and stores it to links map for `txPipe`
         const _sub = this.subscribe({
             next: (data) => {
-                let _res = data.toJSON ? data.toJSON() : data;
-                // applies all callbacks and writes to target `txPipe`
-                target.txWrite(callbacks.reduce((_cb) => _res = _cb(_res)));
+                const _res = _cbRunner(callbacks, data.toJSON ? data.toJSON() : data);
+                if (_res.hasOwnProperty("then") && ((typeof _res.then) === "function")) {
+                    return _res.then((_) => target.txWrite(_));
+                }
+
+                target.txWrite(_res);
             },
             // handles unlink & cleanup on complete
             complete: () => this.txUnlink(target)
@@ -444,4 +445,65 @@ export class TxPipe {
     toJSON() {
         return _pipes.get(this).out.toJSON();
     }
+}
+
+/**
+ * Promise-safe callback iterator for TxPipe transactions
+ * @param callbacks
+ * @returns {{next: (function(*=): *)}}
+ * @private
+ */
+const _cbIterator = (...callbacks) => {
+    let _idx = -1;
+    if (Array.isArray(callbacks[0])) {
+        callbacks = callbacks[0];
+    }
+    const _handler = (callback, dataOrPromise) => {
+        // tests if Promise
+        if (dataOrPromise.hasOwnProperty("then") && (typeof data.then) === "function") {
+            // delegates Promise to new Promise and passes-through
+            return (async () => {
+                await new Promise((resolve) => {
+                    dataOrPromise.then((_) => resolve(callback(_)));
+                });
+            })();
+        }
+        // pass-through to next callback
+        return callback(dataOrPromise);
+    };
+
+    return {
+        next: (data) => {
+            return (_idx++ < (callbacks.length - 1)) ? {
+                value: ((_) => _handler(callbacks[_idx], _))(data),
+                done: false,
+            } : {
+                value: data,
+                done: true,
+            };
+        },
+    };
+};
+/**
+ *
+ * @param callbacks
+ * @param data
+ * @returns {*}
+ * @private
+ */
+const _cbRunner = (callbacks, data) => {
+    const _it = _cbIterator(callbacks);
+    let _done = false;
+    let _res = data;
+    while (!_done) {
+        const {done, value} = _it.next(_res);
+        _done = done;
+        _res = value;
+    }
+
+    // } catch (e) {
+    //     _observers.get(_pipes.get(this).out).error(e);
+    //     return false;
+    // }
+    return _res;
 }
