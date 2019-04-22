@@ -74,45 +74,45 @@ export class TxPipe {
         }
 
         _cache.set(this, []);
-
+        const _self = this;
         const _sub = vo.subscribe({
             next: (data) => {
                 // enforces JSON formatting if feature is present
                 data = data.toJSON ? data.toJSON() : data;
 
                 // tests for presence of rate-limit timeout
-                if (_pipes.get(this).tO) {
+                if (_pipes.get(_self).tO) {
                     // caches operation for later execution. ordering is FIFO
-                    _cache.get(this).splice(0, 0, () => _pipes.get(this).cb(data));
+                    _cache.get(_self).splice(0, 0, () => _pipes.get(_self).cb(data));
                     // cancels current execution
                     return;
                 }
 
                 // tests for interval (ivl)
-                if (_pipes.get(this).ivl !== 0) {
+                if (_pipes.get(_self).ivl !== 0) {
                     // tics the counter and tests if count is fulfilled
-                    if ((++_pipes.get(this).ivlVal) !== _pipes.get(this).ivl) {
+                    if ((++_pipes.get(_self).ivlVal) !== _pipes.get(_self).ivl) {
                         // count is not fulfilled. stops the execution
                         return;
                     } else {
                         // resets the count and lets the operation proceed
-                        _pipes.get(this).ivlVal = 0;
+                        _pipes.get(_self).ivlVal = 0;
                     }
                 }
 
                 // capture output of callback
-                const _t = _pipes.get(this).cb(data);
+                const _t = _pipes.get(_self).cb(data);
 
                 /**
                  * tests if object and if object is writable
                  */
-                if ((typeof _t) === "object" && this.txWritable) {
+                if ((typeof _t) === "object" && _self.txWritable) {
                     const _out = (_) => {
                         // else we set the model for validation
                         try {
-                            _pipes.get(this).out.model = _.toJSON ? _.toJSON() : _;
+                            _pipes.get(_self).out.model = _.toJSON ? _.toJSON() : _;
                         } catch (e) {
-                            _observers.get(_pipes.get(this).out).error(e);
+                            _observers.get(_pipes.get(_self).out).error(e);
                         }
                     };
 
@@ -125,10 +125,10 @@ export class TxPipe {
             },
             error: (e) => {
                 // sends error notification through out validator's observable
-                _observers.get(_pipes.get(this).out).error(e);
+                _observers.get(_pipes.get(_self).out).error(e);
             },
             // closes pipe on `complete` notification
-            complete: () => this.txClose(),
+            complete: () => _self.txClose(),
         });
 
         // accepts a TxPipe, an Object with a schema param, or a straight-up schema
