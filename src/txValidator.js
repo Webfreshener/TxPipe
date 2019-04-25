@@ -40,28 +40,46 @@ export class TxValidator {
      * @returns {boolean}
      */
     static validateSchemas(schemas) {
+        if (schemas.hasOwnProperty("schema")) {
+            if (typeof schemas.schema === "object") {
+                return argsValidator.exec(TxArgs.$id, schemas.schema);
+            }
+        }
         return argsValidator.exec(TxArgs.$id, schemas);
     }
 
-    constructor(schemas, options) {
-        if (!TxValidator.validateSchemas(schemas)) {
+    /**
+     * Accepts one `json-schema` or `tx-config` per instance and an (optional) Ajv config
+     * @param schemaOrConfig
+     * @param options (optional)
+     */
+    constructor(schemaOrConfig, options) {
+        if (!schemaOrConfig) {
+            throw "Schema or Schema Config required";
+        }
+        if (!TxValidator.validateSchemas(schemaOrConfig)) {
             throw "Unable to process schema"
         }
 
-        if (!schemas.hasOwnProperty("schemas")) {
-            schemas = {schemas: Array.isArray(schemas) ? schemas : [schemas]};
+        if (!schemaOrConfig.hasOwnProperty("schemas")) {
+            schemaOrConfig = {
+                schemas: Array.isArray(schemaOrConfig) ? schemaOrConfig : [schemaOrConfig],
+            };
         }
 
-        const _baseSchema = schemas.schemas[schemas.schemas.length - 1] || DefaultVO;
         Object.defineProperty(this, "schema", {
-            get: () => [].concat(schemas.schemas),
-            enumerable: false,
+            get: () => schemaOrConfig || {schemas:[DefaultVO]},
+            enumerable: true,
             configurable: false,
         });
 
+        const _baseSchema = schemaOrConfig.schemas[schemaOrConfig.schemas.length - 1] || DefaultVO;
+
+        // this is just a quick guess at our default data type (object|array)
         _models.set(this, _baseSchema.hasOwnProperty("items") ? [] : {});
+
         _observers.set(this, new BehaviorSubject(null).skip(1));
-        _validators.set(this, new AjvWrapper(schemas, options || {}));
+        _validators.set(this, new AjvWrapper(schemaOrConfig, options || {}));
     }
 
     /**
@@ -104,8 +122,8 @@ export class TxValidator {
      * @param value
      */
     validate(value) {
-        const $id = AjvWrapper.getSchemaID(this.schema[this.schema.length - 1]);
-        return _validators.get(this).exec($id, value) != false;
+        const $id = AjvWrapper.getSchemaID(this.schema.schemas[0] || this.schema);
+        return _validators.get(this).exec($id, value);
     }
 
     /**
@@ -121,7 +139,7 @@ export class TxValidator {
             _models.set(this, data);
             _observers.get(this).next(this);
         } else {
-            _observers.get(this).error(this.errors[0]);
+            _observers.get(this).error(this.errors);
         }
     }
 

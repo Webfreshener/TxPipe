@@ -237,7 +237,7 @@ const _ajvOptions = {
     extendRefs: true, // default 'ignore'
     // loadSchema:       undefined, // function(uri: string): Promise {}
     // // options to modify validated data:
-    // removeAdditional: true,
+    removeAdditional: false,
     // useDefaults: true,
     // coerceTypes:      false,
     // // asynchronous validation options:

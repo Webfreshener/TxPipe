@@ -28,128 +28,136 @@ import {default as DefaultVOSchema} from "./schemas/default-vo.schema";
 
 const _pipes = new WeakMap();
 const _cache = new WeakMap();
-const _defaultVO = new TxValidator({
-    schemas: [DefaultVOSchema],
-});
 
 /**
- * Fills callbacks array to enforce 2 callback minimum
- * @param callbacks
- * @returns {*}
+ * Fills array to enforce 2 callback minimum
+ * @param arr
+ * @param value
+ * @param min
+ * @returns {any[]}
  * @private
  */
-const _fillCallback = (callbacks) => {
-    if (callbacks.length < 2) {
-        callbacks = callbacks.concat([...Array(2 - callbacks.length)
-            .fill((d) => d, 0)])
+const _fill = (arr, value, min = 2) => {
+    if (arr.length >= min) {
+        return arr;
     }
-    return callbacks;
+    const _ = (arr = arr || []).concat(
+        Array(2 - arr.length).fill(value, 0)
+    );
+
+    return _;
+};
+
+/**
+ *
+ * @param arr
+ * @returns {any[]}
+ * @private
+ */
+const _fillCallback = (arr) => _fill(Array.isArray(arr) ? arr : [arr], (d) => d);
+
+/**
+ *
+ * @param obj
+ * @returns {{exec: function}|TxPipe|TxValidator}
+ * @private
+ */
+const _castToExec = (obj) => {
+    const _def = {
+        schema: DefaultVOSchema,
+        exec: (d) => d,
+    };
+
+    if (!obj) {
+        return _def;
+    }
+
+    // -- if arg is array, we recurse
+    if (Array.isArray(obj) && !(obj instanceof TxValidator)) {
+        return obj.map((o) => _castToExec(o));
+    }
+
+    // -- if TxPipe, our work here is already done
+    if (obj instanceof TxPipe || obj instanceof TxValidator) {
+        return obj;
+    }
+
+    if (obj["exec"] && (typeof obj.exec) === "function") {
+        return Object.assign(_def, obj);
+    }
+
+    // -- if is straight up schema, we create validator
+    if (TxValidator.validateSchemas(obj)) {
+        return new TxValidator(obj);
+    }
+
+    // attempts to map to Tx-able object
+    return Object.assign(_def, obj);
+};
+
+/**
+ *
+ * @param args
+ * @returns {any[]|{schemas: {schema, oneOf, $id}[], exec: (function(*): *)}}
+ * @private
+ */
+const _mapArgs = (...args) => {
+    if (!args.length) {
+        return {
+            schemas: [
+                DefaultVOSchema,
+                DefaultVOSchema
+            ],
+            exec: (d) => d,
+        }
+    }
+
+    return args.map(_castToExec);
 };
 
 /**
  * TxPipe Class
  */
 export class TxPipe {
-    constructor(vo = _defaultVO, ...pipesOrSchemas) {
-        if (!(vo instanceof TxValidator)) {
-            if (TxValidator.validateSchemas(vo)) {
-                vo = new TxValidator(vo);
-            } else {
-                pipesOrSchemas[0].splice(0, 0, vo);
-                vo = _defaultVO;
-            }
-        }
-
-        if (!pipesOrSchemas.length) {
-            pipesOrSchemas = [[
-                {
-                    exec: (d) => d,
-                    schema: DefaultVOSchema,
-                },
-            ]];
-        }
-
-        if (Array.isArray(pipesOrSchemas[0])) {
-            pipesOrSchemas = pipesOrSchemas[0];
-        }
-
+    constructor(...pipesOrVOsOrSchemas) {
+        pipesOrVOsOrSchemas = _mapArgs(pipesOrVOsOrSchemas[0]);
+        pipesOrVOsOrSchemas = Array.isArray(pipesOrVOsOrSchemas[0]) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas;
         _cache.set(this, []);
-        const _self = this;
-
-        const _sub = vo.subscribe({
-            next: (data) => {
-                // enforces JSON formatting if feature is present
-                data = data.toJSON ? data.toJSON() : data;
-
-                // tests for presence of rate-limit timeout
-                if (_pipes.get(_self).tO) {
-                    // caches operation for later execution. ordering is FIFO
-                    _cache.get(_self).splice(0, 0, () => _pipes.get(_self).cb(data));
-                    // cancels current execution
-                    return;
-                }
-
-                // tests for interval (ivl)
-                if (_pipes.get(_self).ivl !== 0) {
-                    // tics the counter and tests if count is fulfilled
-                    if ((++_pipes.get(_self).ivlVal) !== _pipes.get(_self).ivl) {
-                        // count is not fulfilled. stops the execution
-                        return;
-                    } else {
-                        // resets the count and lets the operation proceed
-                        _pipes.get(_self).ivlVal = 0;
-                    }
-                }
-
-                // capture output of callback
-                const _t = _pipes.get(_self).cb(data);
-
-                /**
-                 * tests if object and if object is writable
-                 */
-                if ((typeof _t) === "object" && _self.txWritable) {
-                    const _out = (_) => {
-                        // else we set the model for validation
-                        try {
-                            _pipes.get(_self).out.model = _.toJSON ? _.toJSON() : _;
-                        } catch (e) {
-                            _observers.get(_pipes.get(_self).out).error(e);
-                        }
-                    };
-
-                    if (_t.hasOwnProperty("then") && (typeof _t["then"]) === "function") {
-                        return _t.then((_) => _out(_));
-                    }
-
-                    _out(_t);
-                }
-            },
-            error: (e) => {
-                // sends error notification through out validator's observable
-                _observers.get(_pipes.get(_self).out).error(e);
-            },
-            // closes pipe on `complete` notification
-            complete: () => _self.txClose(),
-        });
-
-        // accepts a TxPipe, an Object with a schema param, or a straight-up schema
-        const _s = pipesOrSchemas.map((_) => _.schema || _).pop();
-
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
         const _callbacks = _fillCallback(
-            pipesOrSchemas.map(
-                // (_p) => _p.exec ? _p.exec : (_p.callback || ((d) => d))
-                (_p) => (
-                    (d) => (_p.exec ? _p.exec : (_p.callback || ((_) => _)))
-                        .apply(_self, [d])
-                )
+            pipesOrVOsOrSchemas.map((_p) => (d) => {
+                    return (
+                        // if implements pipe api
+                        (_p.exec) ||
+                        // if implements validator api
+                        (_p.validate ? ((d) => _p.validate(d) ? d : false) : void (0)) ||
+                        // default
+                        ((_) => _)
+                    ).apply(_p, [d]);
+                }
             ),
         );
+
+        const _inPipe = pipesOrVOsOrSchemas[0];
+
+        const _inSchema = _inPipe.schema[0] ||
+            (Array.isArray(_inPipe.schema.schemas) ? _inPipe.schema.schemas[0] : void (0)) ||
+            DefaultVOSchema;
+
+        const _outPipe = pipesOrVOsOrSchemas[pipesOrVOsOrSchemas.length - 1];
+
+        const _outSchema = _outPipe.schema[1] ||
+            (_outPipe.schema.schemas ?
+                _outPipe.schema.schemas[_outPipe.schema.schemas.length - 1] : void (0)) ||
+            _inSchema ||
+            DefaultVOSchema;
+
+        const _inVO = (_inPipe instanceof TxValidator) ? _inPipe : new TxValidator(_inSchema);
 
         // stores config & state
         _pipes.set(this, {
             // references the intake Validator object
-            vo: vo,
+            vo: _inVO,
             // holds `sample` interval
             ivl: 0,
             // holds `sample` interval count
@@ -157,12 +165,10 @@ export class TxPipe {
             // holder for `throttle` rate
             rate: 1,
             // references the output schema
-            schema: _s,
+            schema: [_inSchema, _outSchema],
             // references the output validator
             out: (() => {
-                const _txV = new TxValidator({
-                    schemas: Array.isArray(_s) ? _s : [_s],
-                });
+                const _txV = new TxValidator(_outSchema);
                 // unsubscribe all observers on complete notification (freeze/close)
                 _txV.subscribe({
                     complete: () => {
@@ -172,13 +178,70 @@ export class TxPipe {
                 });
                 return _txV;
             })(),
-            // holder for rxjs notification handlers array
-            listeners: [_sub],
+            listeners: [],
             // holder for linked pipe references
             links: new WeakMap(),
             // initializes callback handler
-            cb: (_res=false) => _cbRunner(_callbacks, _res),
+            cb: (_res = false) => _cbRunner(_callbacks, _res),
         });
+
+        const _self = this;
+        _pipes.get(this).listeners = [
+            _pipes.get(this).vo.subscribe(
+                {
+                    next: (data) => {
+                        // enforces JSON formatting if feature is present
+                        data = data.toJSON ? data.toJSON() : data;
+
+                        // tests for presence of rate-limit timeout
+                        if (_pipes.get(_self).tO) {
+                            // caches operation for later execution. ordering is FIFO
+                            _cache.get(_self).splice(0, 0, () => _pipes.get(_self).cb(data));
+                            // cancels current execution
+                            return;
+                        }
+
+                        // tests for interval (ivl)
+                        if (_pipes.get(_self).ivl !== 0) {
+                            // tics the counter and tests if count is fulfilled
+                            if ((++_pipes.get(_self).ivlVal) !== _pipes.get(_self).ivl) {
+                                // count is not fulfilled. stops the execution
+                                return;
+                            } else {
+                                // resets the count and lets the operation proceed
+                                _pipes.get(_self).ivlVal = 0;
+                            }
+                        }
+
+                        // capture output of callback
+                        const _t = _pipes.get(_self).cb(data);
+
+                        // tests if object and if object is writable
+                        if ((typeof _t) === "object" && _self.txWritable) {
+                            const _out = (_) => {
+                                // else we set the model for validation
+                                try {
+                                    _pipes.get(_self).out.model = _.toJSON ? _.toJSON() : _;
+                                } catch (e) {
+                                    _observers.get(_pipes.get(_self).out).error(e);
+                                }
+                            };
+
+                            if (_t instanceof Promise) {
+                                return _t.then((_) => _out(_));
+                            }
+
+                            _out(_t);
+                        }
+                    },
+                    error: (e) => {
+                        // sends error notification through out validator's observable
+                        _observers.get(_pipes.get(_self).out).error(e);
+                    },
+                    // closes pipe on `complete` notification
+                    complete: () => _self.txClose(),
+                }
+            )];
     }
 
     /**
@@ -187,22 +250,11 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txPipe(...pipesOrSchemas) {
-        if (Array.isArray(pipesOrSchemas[0])) {
-            pipesOrSchemas = pipesOrSchemas[0];
-        }
+        return new TxPipe([].concat(_pipes.get(this).out, pipesOrSchemas));
+    }
 
-        // fixes scoping issue for inlining callbacks from external pipes
-        pipesOrSchemas = pipesOrSchemas.map((pS) => {
-            if (pS instanceof TxPipe) {
-                return {
-                    schema: pS.txSchema,
-                    exec: (d) => pS.exec.apply(pS, [d]),
-                };
-            }
-            return pS;
-        });
-
-        return new TxPipe(_pipes.get(this).out, pipesOrSchemas);
+    get schema() {
+        return _pipes.get(this).schema;
     }
 
     /**
@@ -221,13 +273,13 @@ export class TxPipe {
             callbacks = callbacks[0];
         }
 
-        callbacks = _fillCallback(callbacks);
+        callbacks = _fillCallback(callbacks || []);
 
         // creates observer and stores it to links map for `txPipe`
         const _sub = this.subscribe({
             next: (data) => {
                 const _res = _cbRunner(callbacks, data.toJSON ? data.toJSON() : data);
-                if (_res.hasOwnProperty("then") && ((typeof _res.then) === "function")) {
+                if (_res instanceof Promise) {
                     return _res.then((_) => target.txWrite(_));
                 }
 
@@ -283,7 +335,9 @@ export class TxPipe {
      * @returns {*}
      */
     txSplit(...schemasOrPipes) {
-        return schemasOrPipes[0].map((o) => this.txPipe(o));
+        return (
+            Array.isArray(schemasOrPipes[0]) ? schemasOrPipes[0] : schemasOrPipes
+        ).map((o) => this.txPipe(o));
     }
 
     /**
@@ -294,15 +348,16 @@ export class TxPipe {
      */
     txMerge(pipeOrPipes, pipeOrSchema = {schemas: [DefaultVOSchema]}) {
         const _out = this.txPipe(pipeOrSchema);
-        _pipes.get(this).listeners = _pipes.get(this).listeners.concat(
-            // -- feeds output of map to listeners array
-            (Array.isArray(pipeOrPipes) ? pipeOrPipes : [pipeOrPipes])
-                .map((_p) => _p.subscribe((d) => {
-                        // -- all pipes now write to output tx
-                        _out.txWrite(d.toJSON ? d.toJSON() : d);
-                    })
-                )
-        );
+        _pipes.get(this).listeners = _pipes.get(this).listeners
+            .concat(
+                // -- feeds output of map to listeners array
+                (Array.isArray(pipeOrPipes) ? pipeOrPipes : [pipeOrPipes])
+                    .map((_p) => _p.subscribe((d) => {
+                            // -- all pipes now write to output tx
+                            _out.txWrite(d.toJSON ? d.toJSON() : d);
+                        })
+                    )
+            );
         // -- returns output tx for observation
         return _out;
     }
@@ -331,7 +386,7 @@ export class TxPipe {
      */
     txClone() {
         const {vo, schema, cb} = _pipes.get(this);
-        return new TxPipe(vo, {schema: schema, exec: (d) => cb(d)});
+        return new TxPipe(vo, {schema: schema, exec: (d) => cb(d), value: this.txTap()});
     }
 
 
@@ -461,25 +516,23 @@ const _cbIterator = (...callbacks) => {
     }
     const _handler = (callback, dataOrPromise) => {
         // tests if Promise
-        if (dataOrPromise.hasOwnProperty("then") && (typeof data.then) === "function") {
-            // delegates Promise to new Promise and passes-through
-            return (async () => {
-                await new Promise((resolve) => {
-                    dataOrPromise.then((_) => resolve(callback(_)));
-                });
-            })();
+        if (dataOrPromise instanceof Promise) {
+            // delegates Promise
+            return (async (d) => await new Promise(
+                    (resolve) => d.then((_) => resolve(callback(_)))
+                )
+            )(dataOrPromise);
         }
-        // pass-through to next callback
         return callback(dataOrPromise);
     };
 
     return {
         next: (data) => {
             return (_idx++ < (callbacks.length - 1)) ? {
-                value: ((_) => _handler(callbacks[_idx], _))(data),
+                value: ((data) => _handler(callbacks[_idx], data))(data),
                 done: false,
             } : {
-                value: data,
+                value: data || false,
                 done: true,
             };
         },
@@ -497,11 +550,11 @@ const _cbRunner = (callbacks, data) => {
     let _done = false;
     let _value = data;
     while (!_done) {
-       let {done, value} = _it.next(_value);
-       _done = done;
-       _value = value;
+        let {done, value} = _it.next(_value);
+        _done = done;
+        _value = value;
     }
-
+    // todo: review for refactor/removal
     // } catch (e) {
     //     _observers.get(_pipes.get(this).out).error(e);
     //     return false;

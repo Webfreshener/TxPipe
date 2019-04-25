@@ -3,6 +3,7 @@ import {TxPipe} from "./txPipe";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as JSONSchemaDraft04} from "../fixtures/json-schema-draft-04";
 import {default as data} from "../fixtures/pipes-test.data";
+import {TestUser, TestSubClass} from "../fixtures/pipes-instances";
 
 const _schemaLess = Object.assign({}, basicCollection);
 delete _schemaLess.$schema;
@@ -12,8 +13,8 @@ const _pipesOrSchemas = [{
         meta: [JSONSchemaDraft04],
         schemas: [_schemaLess],
     },
-    callback: (d) => {
-        return d ? d.filter((itm) => itm.active) : false;
+    exec: (d) => {
+        return d ? d.filter((is) => is.active) : false;
     },
 }];
 
@@ -24,20 +25,21 @@ const _vo = {
 describe("TxPipes tests", () => {
     describe("TxtPipes API Tests", () => {
         it("should provide a schema", () => {
-            const _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            const _p = new TxPipe(_pipesOrSchemas[0].schema);
             expect(JSON.stringify(_p.txSchema[0])).toEqual(
-                JSON.stringify(_pipesOrSchemas[0].schema)
+                JSON.stringify([].concat(_pipesOrSchemas[0].schema.schemas).pop())
             );
         });
+
         it("should exec and not modify contents", () => {
-            const _p = new TxPipe(_vo.schema,_pipesOrSchemas);
+            const _p = new TxPipe(_pipesOrSchemas);
             expect(_p.exec(data).length).toEqual(3);
             expect(Object.keys(_p.txTap()).length).toEqual(0);
         });
 
 
         it("should work with Promises", (done) => {
-            const _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            const _p = new TxPipe(_pipesOrSchemas);
             _p.txPromise(data).then((res) => {
                 expect(res.txTap().length).toEqual(3);
                 done();
@@ -45,13 +47,13 @@ describe("TxPipes tests", () => {
         });
 
         it("should provide errors", (done) => {
-            const _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            const _p = new TxPipe(_pipesOrSchemas);
             const _sub = _p.subscribe({
-                next: (d) => {
+                next: () => {
                     _sub.unsubscribe();
                     done("pipe should have errored");
                 },
-                error: (e) => {
+                error: () => {
                     _sub.unsubscribe();
                     expect(_p.txErrors !== null).toBe(true);
                     done();
@@ -66,7 +68,7 @@ describe("TxPipes tests", () => {
         let _p;
 
         beforeEach(() => {
-            _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            _p = new TxPipe(_pipesOrSchemas);
         });
 
         it("should intake and output data", (done) => {
@@ -102,21 +104,31 @@ describe("TxPipes tests", () => {
         });
 
         it("should split pipe", () => {
-
             const _config = [
                 {
-                    callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
+                    exec: (d) => {
+                        return d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`}))
+                    },
                 },
                 {
-                    callback: (d) => d.map((m) => Object.assign(m, {age: 99})),
+                    exec: (d) => d.map((m) => Object.assign(m, {age: 99})),
                 },
-            ].map((o) => Object.assign(o, _vo.schema));
+            ].map((o) => Object.assign(o, _vo));
 
             const _cb = jest.fn();
-            _p = new TxPipe(_vo.schema, _pipesOrSchemas);
+            _p = new TxPipe();
             const _split = _p.txSplit(_config);
-            _split.forEach(function(pipe) {
-                pipe.subscribe({next: () => _cb()});
+            expect(_split.length).toEqual(2);
+            _split.forEach((pipe) => {
+                const _sub = pipe.subscribe.apply(pipe, [{
+                    next: (m) => {
+                        _cb();
+                        _sub.unsubscribe();
+                    },
+                    error: (e) => {
+                        throw e;
+                    }
+                }]);
             });
             _p.txWrite(data);
             expect(_cb).toHaveBeenCalledTimes(2);
@@ -125,25 +137,21 @@ describe("TxPipes tests", () => {
         });
 
         it("should exec multiple pipes inline", () => {
-            const _p1 = new TxPipe(
-                new TxValidator( _vo.schema),
-                [{
-                    schema: [].concat(_vo.schema),
-                    callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
-                }]);
+            const _p1 = new TxPipe({
+                    schema: _vo.schema,
+                    exec: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
+                });
 
-            const _p2 = new TxPipe(
-                new TxValidator(_vo.schema),
-                [{
-                    schema: [].concat(_vo.schema),
-                    callback: (d) => d.map((m) => Object.assign(m, {age: 99})),
-                }]);
+            const _p2 = new TxPipe({
+                    schema: _vo.schema,
+                    exec: (d) => d.map((m) => Object.assign(m, {age: 99})),
+                });
 
             const _inline = _p.txPipe(_p1, _p2);
 
             _inline.txWrite(data);
 
-            expect(JSON.stringify(_inline.txSchema[0])).toEqual(JSON.stringify(_vo.schema));
+            expect(JSON.stringify(_inline.txSchema[0])).toEqual(JSON.stringify([].concat(_vo.schema.schemas).pop()));
             expect(_inline.txTap().length).toEqual(data.length);
             expect(_inline.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
             expect(_inline.txTap()[0].age).toEqual(99);
@@ -177,7 +185,7 @@ describe("TxPipes tests", () => {
                 error: console.log,
             });
 
-            data.slice(0,4).forEach((m) => {
+            data.slice(0, 4).forEach((m) => {
                 _p.txWrite([m]);
             });
 
@@ -291,22 +299,21 @@ describe("TxPipes tests", () => {
         });
 
 
-
         it("should merge multiple pipes into a single output", () => {
-            const _p1 = new TxPipe(_vo.schema, {
-                    schema: _vo.schema,
-                    callback: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
-                });
+            const _p1 = new TxPipe({
+                schema: _vo.schema,
+                exec: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
+            });
 
-            const _p2 = new TxPipe(_vo.schema, {
+            const _p2 = new TxPipe({
                     schema: _vo.schema,
-                    callback: (d) => d.map((m) => Object.assign(m, {age: 99}))
+                    exec: (d) => d.map((m) => Object.assign(m, {age: 99}))
                 }
             );
 
             const _merged = _p.txMerge([_p1, _p2], {
                 schema: _vo.schema,
-                callback: (d) => d.map(
+                exec: (d) => d.map(
                     (m) => Object.assign(m, {active: false})
                 )
             });
@@ -329,6 +336,31 @@ describe("TxPipes tests", () => {
             expect(_merged.txTap()[0].age).toEqual(99);
             expect(_merged.txTap()[data.length - 1].age).toEqual(99);
         });
+    });
+
+    describe("TxPipes Sub-Class Tests", () => {
+        const _data = {body: "ok"};
+        const _res = {body: "yada-yada"};
+        it("should sub class", () => {
+            const _unit = new TxPipe({
+                exec: (d) => {
+                    return _res
+                },
+            });
+            const _ = new TestSubClass(_unit);
+            // const _ = new TestSubClass();
+            expect(_unit.txWrite(_data).txTap()).toEqual(_res);
+            expect(_.txWrite(_data).txTap()).toEqual(_res);
+        });
+        // it.skip("should nest", (done) => {
+        //     const _ = new TestUser(new TxPipe({
+        //             exec: () => {
+        //                 body: "ok"
+        //             },
+        //         })
+        //     );
+        //     expect(_.exec(_data).pipe.txTap()).toEqual(_data);
+        // });
     });
 
 });
