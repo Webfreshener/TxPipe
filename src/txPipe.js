@@ -1,8 +1,8 @@
 /* ############################################################################
 The MIT License (MIT)
 
-Copyright (c) 2016 - 2019 Van Schroeder
-Copyright (c) 2017-2019 Webfreshener, LLC
+Copyright (c) 2019 Van Schroeder
+Copyright (c) 2019 Webfreshener, LLC
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,107 +24,23 @@ SOFTWARE.
 
 ############################################################################ */
 import {_observers, TxValidator} from "./txValidator";
+import {fillCallback, mapArgs} from "./txUtils";
+import {TxExecutor} from "./TxExecutor";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema";
 
 const _pipes = new WeakMap();
 const _cache = new WeakMap();
 
 /**
- * Fills array to enforce 2 callback minimum
- * @param arr
- * @param value
- * @param min
- * @returns {any[]}
- * @private
- */
-const _fill = (arr, value, min = 2) => {
-    if (arr.length >= min) {
-        return arr;
-    }
-    const _ = (arr = arr || []).concat(
-        Array(2 - arr.length).fill(value, 0)
-    );
-
-    return _;
-};
-
-/**
- *
- * @param arr
- * @returns {any[]}
- * @private
- */
-const _fillCallback = (arr) => _fill(Array.isArray(arr) ? arr : [arr], (d) => d);
-
-/**
- *
- * @param obj
- * @returns {{exec: function}|TxPipe|TxValidator}
- * @private
- */
-const _castToExec = (obj) => {
-    const _def = {
-        schema: DefaultVOSchema,
-        exec: (d) => d,
-    };
-
-    if (!obj) {
-        return _def;
-    }
-
-    // -- if arg is array, we recurse
-    if (Array.isArray(obj) && !(obj instanceof TxValidator)) {
-        return obj.map((o) => _castToExec(o));
-    }
-
-    // -- if TxPipe, our work here is already done
-    if (obj instanceof TxPipe || obj instanceof TxValidator) {
-        return obj;
-    }
-
-    if (obj["exec"] && (typeof obj.exec) === "function") {
-        return Object.assign(_def, obj);
-    }
-
-    // -- if is straight up schema, we create validator
-    if (TxValidator.validateSchemas(obj)) {
-        return new TxValidator(obj);
-    }
-
-    // attempts to map to Tx-able object
-    return Object.assign(_def, obj);
-};
-
-/**
- *
- * @param args
- * @returns {any[]|{schemas: {schema, oneOf, $id}[], exec: (function(*): *)}}
- * @private
- */
-const _mapArgs = (...args) => {
-    if (!args.length) {
-        return {
-            schemas: [
-                DefaultVOSchema,
-                DefaultVOSchema
-            ],
-            exec: (d) => d,
-        }
-    }
-
-    return args.map(_castToExec);
-};
-
-/**
  * TxPipe Class
  */
 export class TxPipe {
     constructor(...pipesOrVOsOrSchemas) {
-        pipesOrVOsOrSchemas = _mapArgs(pipesOrVOsOrSchemas[0]);
+        pipesOrVOsOrSchemas = mapArgs(pipesOrVOsOrSchemas[0]);
         pipesOrVOsOrSchemas = Array.isArray(pipesOrVOsOrSchemas[0]) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas;
         _cache.set(this, []);
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
-        const _callbacks = _fillCallback(
+        const _callbacks = fillCallback(
             pipesOrVOsOrSchemas.map((_p) => (d) => {
                     return (
                         // if implements pipe api
@@ -182,66 +98,11 @@ export class TxPipe {
             // holder for linked pipe references
             links: new WeakMap(),
             // initializes callback handler
-            cb: (_res = false) => _cbRunner(_callbacks, _res),
+            cb: (_res = false) => TxExecutor.exec(_callbacks, _res),
         });
 
         const _self = this;
-        _pipes.get(this).listeners = [
-            _pipes.get(this).vo.subscribe(
-                {
-                    next: (data) => {
-                        // enforces JSON formatting if feature is present
-                        data = data.toJSON ? data.toJSON() : data;
-
-                        // tests for presence of rate-limit timeout
-                        if (_pipes.get(_self).tO) {
-                            // caches operation for later execution. ordering is FIFO
-                            _cache.get(_self).splice(0, 0, () => _pipes.get(_self).cb(data));
-                            // cancels current execution
-                            return;
-                        }
-
-                        // tests for interval (ivl)
-                        if (_pipes.get(_self).ivl !== 0) {
-                            // tics the counter and tests if count is fulfilled
-                            if ((++_pipes.get(_self).ivlVal) !== _pipes.get(_self).ivl) {
-                                // count is not fulfilled. stops the execution
-                                return;
-                            } else {
-                                // resets the count and lets the operation proceed
-                                _pipes.get(_self).ivlVal = 0;
-                            }
-                        }
-
-                        // capture output of callback
-                        const _t = _pipes.get(_self).cb(data);
-
-                        // tests if object and if object is writable
-                        if ((typeof _t) === "object" && _self.txWritable) {
-                            const _out = (_) => {
-                                // else we set the model for validation
-                                try {
-                                    _pipes.get(_self).out.model = _.toJSON ? _.toJSON() : _;
-                                } catch (e) {
-                                    _observers.get(_pipes.get(_self).out).error(e);
-                                }
-                            };
-
-                            if (_t instanceof Promise) {
-                                return _t.then((_) => _out(_));
-                            }
-
-                            _out(_t);
-                        }
-                    },
-                    error: (e) => {
-                        // sends error notification through out validator's observable
-                        _observers.get(_pipes.get(_self).out).error(e);
-                    },
-                    // closes pipe on `complete` notification
-                    complete: () => _self.txClose(),
-                }
-            )];
+        _pipes.get(this).listeners = [PipeListener.create(this)];
     }
 
     /**
@@ -273,12 +134,12 @@ export class TxPipe {
             callbacks = callbacks[0];
         }
 
-        callbacks = _fillCallback(callbacks || []);
+        callbacks = fillCallback(callbacks || []);
 
         // creates observer and stores it to links map for `txPipe`
         const _sub = this.subscribe({
             next: (data) => {
-                const _res = _cbRunner(callbacks, data.toJSON ? data.toJSON() : data);
+                const _res = TxExecutor.exec(callbacks, data.toJSON ? data.toJSON() : data);
                 if (_res instanceof Promise) {
                     return _res.then((_) => target.txWrite(_));
                 }
@@ -352,11 +213,13 @@ export class TxPipe {
             .concat(
                 // -- feeds output of map to listeners array
                 (Array.isArray(pipeOrPipes) ? pipeOrPipes : [pipeOrPipes])
-                    .map((_p) => _p.subscribe((d) => {
+                    .filter((_p) => ((typeof _p.subscribe) === "function"))
+                    .map((_p) => {
+                        _p.subscribe((d) => {
                             // -- all pipes now write to output tx
                             _out.txWrite(d.toJSON ? d.toJSON() : d);
                         })
-                    )
+                    })
             );
         // -- returns output tx for observation
         return _out;
@@ -385,8 +248,14 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txClone() {
-        const {vo, schema, cb} = _pipes.get(this);
-        return new TxPipe(vo, {schema: schema, exec: (d) => cb(d), value: this.txTap()});
+        const $ref = _pipes.get(this);
+        const _cz = class extends TxPipe {
+            constructor() {
+                super();
+                _pipes.set(this, $ref);
+            }
+        };
+        return new _cz();
     }
 
 
@@ -503,61 +372,93 @@ export class TxPipe {
     }
 }
 
-/**
- * Promise-safe callback iterator for TxPipe transactions
- * @param callbacks
- * @returns {{next: (function(*=): *)}}
- * @private
- */
-const _cbIterator = (...callbacks) => {
-    let _idx = -1;
-    if (Array.isArray(callbacks[0])) {
-        callbacks = callbacks[0];
-    }
-    const _handler = (callback, dataOrPromise) => {
-        // tests if Promise
-        if (dataOrPromise instanceof Promise) {
-            // delegates Promise
-            return (async (d) => await new Promise(
-                    (resolve) => d.then((_) => resolve(callback(_)))
-                )
-            )(dataOrPromise);
-        }
-        return callback(dataOrPromise);
-    };
+export class PipeListener {
+    /**
+     *
+     * @param data
+     * @returns {Promise<void | never>}
+     */
+    next(data) {
+        // enforces JSON formatting if feature is present
+        data = data.toJSON ? data.toJSON() : data;
 
-    return {
-        next: (data) => {
-            return (_idx++ < (callbacks.length - 1)) ? {
-                value: ((data) => _handler(callbacks[_idx], data))(data),
-                done: false,
-            } : {
-                value: data || false,
-                done: true,
+        // tests for presence of rate-limit timeout
+        if (_pipes.get(this.target).tO) {
+            // caches operation for later execution. ordering is FIFO
+            _cache.get(this.target).splice(0, 0, () => _pipes.get(this.target).cb(data));
+            // cancels current execution
+            return;
+        }
+
+        // tests for interval (ivl)
+        if (_pipes.get(this.target).ivl !== 0) {
+            // tics the counter and tests if count is fulfilled
+            if ((++_pipes.get(this.target).ivlVal) !== _pipes.get(this.target).ivl) {
+                // count is not fulfilled. stops the execution
+                return;
+            } else {
+                // resets the count and lets the operation proceed
+                _pipes.get(this.target).ivlVal = 0;
+            }
+        }
+
+        // capture output of callback
+        const _t = _pipes.get(this.target).cb(data);
+
+        // tests if object and if object is writable
+        if ((typeof _t) === "object" && this.target.txWritable) {
+            const _out = (_) => {
+                // else we set the model for validation
+                try {
+                    _pipes.get(this.target).out.model = _.toJSON ? _.toJSON() : _;
+                } catch (e) {
+                    _observers.get(_pipes.get(this.target).out).error(e);
+                }
             };
-        },
-    };
-};
-/**
- *
- * @param callbacks
- * @param data
- * @returns {*}
- * @private
- */
-const _cbRunner = (callbacks, data) => {
-    const _it = _cbIterator(callbacks);
-    let _done = false;
-    let _value = data;
-    while (!_done) {
-        let {done, value} = _it.next(_value);
-        _done = done;
-        _value = value;
+
+            if (_t instanceof Promise) {
+                return _t.then((_) => _out(_));
+            }
+
+            _out(_t);
+        }
     }
-    // todo: review for refactor/removal
-    // } catch (e) {
-    //     _observers.get(_pipes.get(this).out).error(e);
-    //     return false;
-    // }
-    return _value;
-};
+
+    /**
+     *
+     * @param e
+     */
+    error(e) {
+        // sends error notification through out validator's observable
+        _observers.get(_pipes.get(this.target).out).error(e);
+    }
+
+    /**
+     *
+     */
+    complete() {
+        _target.txClose();
+    }
+
+    /**
+     *
+     * @param target
+     */
+    constructor(target) {
+        Object.defineProperty(this, "target", {
+            value: target,
+            enumerable: false,
+            configurable: false,
+        });
+        _pipes.get(target).vo.subscribe(this);
+    }
+
+    /**
+     *
+     * @param target
+     * @returns {PipeListener}
+     */
+    static create(target) {
+        return new PipeListener(target);
+    }
+}

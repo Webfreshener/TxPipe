@@ -87,7 +87,7 @@ export class TxValidator {
      * @returns {TxValidator}
      */
     freeze() {
-        _models.set(Object.freeze(_models.get(this)));
+        _models.set(this, Object.freeze(_models.get(this)));
         _observers.get(this).complete();
         return this;
     }
