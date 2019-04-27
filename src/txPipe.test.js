@@ -1,9 +1,9 @@
-import {_observers, TxValidator} from "./txValidator";
+import {TxValidator} from "./txValidator";
 import {TxPipe} from "./txPipe";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as JSONSchemaDraft04} from "../fixtures/json-schema-draft-04";
 import {default as data} from "../fixtures/pipes-test.data";
-import {TestUser, TestSubClass} from "../fixtures/pipes-instances";
+import {TestSubClass} from "../fixtures/pipes-instances";
 
 const _schemaLess = Object.assign({}, basicCollection);
 delete _schemaLess.$schema;
@@ -161,7 +161,6 @@ describe("TxPipes tests", () => {
 
         it("should be iterable with txYield", () => {
             const _ = _p.txYield(data);
-            _.next();
             expect(_.next().value.length).toEqual(3);
             expect(_.next().done).toBe(true);
         });
@@ -204,10 +203,19 @@ describe("TxPipes tests", () => {
             const _h = () => _cnt++;
 
             const _sub1 = _p.subscribe(_h);
-            const _sub2 = _p.txClone().subscribe(_h);
+
+            const _clone = _p.txClone();
+
+            const _sub2 = _clone.subscribe(_h);
+
+            _clone.txWrite(data);
+            expect(_cnt).toEqual(2);
+
+            _cnt = 0;
 
             _p.txWrite(data);
-            expect(_cnt).toEqual(2);
+            expect(_cnt).toEqual(1);
+
             _sub1.unsubscribe();
             _sub2.unsubscribe();
         });
