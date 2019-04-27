@@ -1,8 +1,8 @@
 /* ############################################################################
 The MIT License (MIT)
 
-Copyright (c) 2016 - 2019 Van Schroeder
-Copyright (c) 2017-2019 Webfreshener, LLC
+Copyright (c) 2019 Van Schroeder
+Copyright (c) 2019 Webfreshener, LLC
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -237,7 +237,7 @@ const _ajvOptions = {
     extendRefs: true, // default 'ignore'
     // loadSchema:       undefined, // function(uri: string): Promise {}
     // // options to modify validated data:
-    // removeAdditional: true,
+    removeAdditional: false,
     // useDefaults: true,
     // coerceTypes:      false,
     // // asynchronous validation options:

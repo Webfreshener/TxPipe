@@ -6,9 +6,6 @@ export default {
             $ref: "#/definitions/Schema",
         },
         {
-            $ref: "#/definitions/Schemas",
-        },
-        {
             type: "object",
             required: ["schemas"],
             properties: {

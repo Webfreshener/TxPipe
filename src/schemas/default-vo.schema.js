@@ -1,14 +1,14 @@
 export default {
     $id: "http://schemas.webfreshener.com/v1/default-vo#",
     schema: "http://json-schema.org/draft-07/schema#",
-    oneOf: [
+    anyOf: [
         {
             type: "object",
-            properties: {},
+            properties: {}
         },
         {
             type: "array",
-            items: {},
+            items: {}
         },
-    ],
+    ]
 };
