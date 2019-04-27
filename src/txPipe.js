@@ -36,41 +36,71 @@ const _cache = new WeakMap();
  * TxPipe Class
  */
 export class TxPipe {
+    static getExecs(_pvs) {
+        return _pvs.map((_p) => ((d) => {
+            return (
+                // is pipe or implements pipe api
+                (_p.exec) ||
+                // is validator or implements validator api
+                (_p.validate ? (
+                    (d) => _p.validate(d) ? d : false
+                ) : void (0)) ||
+                // default
+                ((_) => _)
+            ).apply(_p, [d])
+    })
+        );
+    }
+
+
     constructor(...pipesOrVOsOrSchemas) {
         _pipes.set(this, {});
         _cache.set(this, []);
 
-        pipesOrVOsOrSchemas = mapArgs(pipesOrVOsOrSchemas[0]);
-        pipesOrVOsOrSchemas = Array.isArray(pipesOrVOsOrSchemas[0]) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas;
-
+        pipesOrVOsOrSchemas = [].concat(mapArgs(...pipesOrVOsOrSchemas));
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
-        const _callbacks = fillCallback(
-            pipesOrVOsOrSchemas.map((_p) => (d) => {
-                    return (
-                        // if implements pipe api
-                        (_p.exec) ||
-                        // if implements validator api
-                        (_p.validate ? ((d) => _p.validate(d) ? d : false) : void (0)) ||
-                        // default
-                        ((_) => _)
-                    ).apply(_p, [d]);
-                }
-            ),
-        );
+        const _callbacks = fillCallback(TxPipe.getExecs(pipesOrVOsOrSchemas));
 
-        const _inPipe = pipesOrVOsOrSchemas[0];
+        console.log(`_callbacks: ${_callbacks[0]}`);
 
-        const _inSchema = _inPipe.schema[0] ||
-            (Array.isArray(_inPipe.schema.schemas) ? _inPipe.schema.schemas[0] : void (0)) ||
-            DefaultVOSchema;
+        const _inPipe = (
+            Array.isArray(pipesOrVOsOrSchemas) && pipesOrVOsOrSchemas.length
+        ) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas.length ?
+            pipesOrVOsOrSchemas : {
+                schema: [DefaultVOSchema, DefaultVOSchema],
+                exec: (d) => d,
+            };
 
-        const _outPipe = pipesOrVOsOrSchemas[pipesOrVOsOrSchemas.length - 1];
+        // const _inSchema = _inPipe.schema[0] ||
+        //     (Array.isArray(_inPipe.schema.schemas) ? _inPipe.schema.schemas[0] : void (0)) ||
+        //     DefaultVOSchema;
+        //
+        // const _outSchema = _outPipe.schema && _outPipe.schema[1] ? _outPipe.schema[1] :
+        //     (_outPipe.schema && _outPipe.schema.schemas ?
+        //         _outPipe.schema.schemas[_outPipe.schema.schemas.length - 1] : void (0)) ||
+        //     _inSchema ||
+        //     DefaultVOSchema;
+        //
+        // const _outPipe = pipesOrVOsOrSchemas.length ?
+        //     pipesOrVOsOrSchemas[pipesOrVOsOrSchemas.length - 1] :
+        //     pipesOrVOsOrSchemas;
 
-        const _outSchema = _outPipe.schema[1] ||
-            (_outPipe.schema.schemas ?
-                _outPipe.schema.schemas[_outPipe.schema.schemas.length - 1] : void (0)) ||
-            _inSchema ||
-            DefaultVOSchema;
+        const _pSchemas = [].concat(pipesOrVOsOrSchemas.filter((_p) => {
+            return (_p instanceof TxValidator) || (_p.hasOwnProperty("schema") && (
+                Array.isArray(_p.schema) || TxValidator.validateSchemas(_p.schema)
+            ));
+        }));
+
+        const _getInSchema = (schemas) => {
+            if (_pSchemas.length) {
+                return (_pSchemas[0] instanceof TxValidator) ?
+                    _pSchemas[0].schema : _pSchemas[0];
+            }
+            return DefaultVOSchema;
+        };
+
+        const _inSchema = _getInSchema(_pSchemas);
+        const _outSchema = _pSchemas.length > 1 ? _pSchemas[_pSchemas.length - 1] : _inSchema;
 
         // stores config & state
         _pipes.set(this,
@@ -196,14 +226,39 @@ export class TxPipe {
      * @returns {Object|Array}
      */
     txYield(data) {
+        // const _fill = fillCallback(_pipes.get(this).pOS.map((_p) => (d) => {
+        //         // todo: DRY this out
+        //         return (
+        //             // if implements pipe api
+        //             (_p.exec) ||
+        //             // if implements validator api
+        //             (_p.validate ? ((d) => _p.validate(d) ? d : false) : void (0)) ||
+        //             // default
+        //             ((_) => _)
+        //         ).apply(_p, [d]);
+        //     }
+        // ));
+        const _fill = _pipes.get(this).pOS.map((_p) => (d) => {
+                // todo: DRY this out
+                return (
+                    // if implements pipe api
+                    (_p.exec) ||
+                    // if implements validator api
+                    (_p.validate ? ((d) => _p.validate(d) ? d : false) : void (0)) ||
+                    // default
+                    ((_) => _)
+                ).apply(_p, [d]);
+            }
+        );
         const _f = new Function("$scope", "$cb",
             [
                 "return (function* (data) {",
-                Object.keys(_pipes.get(this).callbacks || [(d) => d])
+                Object.keys(_fill.length ? _fill : [(d) => d])
                     .map((_) => `yield data = ($cb[${_}].bind($scope))(data)`)
                     .join("; "),
                 "}).bind($scope);",
             ].join(" "));
+
         const _tx = _f(this, _pipes.get(this).callbacks)(data);
         _tx.next();
         return _tx;
@@ -259,9 +314,10 @@ export class TxPipe {
     txClone() {
         const $ref = _pipes.get(this);
         const _cz = class extends TxPipe {
-            constructor(..._) {
-                super(..._);
+            constructor() {
+                super();
                 _pipes.set(this, $ref);
+                // -- this is where we need to sanitize the clone
                 //     TxProperties.init(this, {
                 //         vo: _pipes.get(this).vo,
                 //         callbacks: $ref.callbacks,

@@ -26,6 +26,10 @@ SOFTWARE.
 import {TxPipe} from "./txPipe";
 import {TxValidator} from "./txValidator";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema"
+const DefaultPipeTx = {
+    schema: DefaultVOSchema,
+    exec: (d) => d,
+};
 
 /**
  * Fills array to enforce 2 callback minimum
@@ -38,11 +42,9 @@ export const fill = (arr, value, min = 2) => {
     if (arr.length >= min) {
         return arr;
     }
-    const _ = (arr = arr || []).concat(
-        Array(2 - arr.length).fill(value, 0)
+    return (arr = arr || []).concat(
+        Array( min - arr.length).fill(value, 0)
     );
-
-    return _;
 };
 
 /**
@@ -58,13 +60,8 @@ export const fillCallback = (arr) => fill(Array.isArray(arr) ? arr : [arr], (d) 
  * @returns {{exec: function}|TxPipe|TxValidator}
  */
 export const castToExec = (obj) => {
-    const _def = {
-        schema: DefaultVOSchema,
-        exec: (d) => d,
-    };
-
     if (!obj) {
-        return _def;
+        return DefaultPipeTx;
     }
 
     // -- if arg is array, we recurse
@@ -79,7 +76,7 @@ export const castToExec = (obj) => {
 
     // -- if is pipe config item, we normalize for intake
     if ((typeof obj.exec) === "function") {
-        return Object.assign(_def, obj);
+        return Object.assign(DefaultPipeTx, obj);
     }
 
     // -- if is straight up schema, we create validator instance
@@ -88,7 +85,7 @@ export const castToExec = (obj) => {
     }
 
     // attempts to map to Tx-able object
-    return Object.assign(_def, obj);
+    return Object.assign(DefaultPipeTx, obj);
 };
 
 /**
@@ -116,18 +113,12 @@ export const wrapCallback = (cb) => ((dataOrPromise) => {
 /**
  *
  * @param args
- * @returns {any[]|{schemas: {schema, oneOf, $id}[], exec: (function(*): *)}}
+ * @returns {any[]|{schema: *, exec: (function(*): *)}}
  * @private
  */
 export const mapArgs = (...args) => {
     if (!args.length) {
-        return {
-            schemas: [
-                DefaultVOSchema,
-                DefaultVOSchema
-            ],
-            exec: (d) => d,
-        }
+        return DefaultPipeTx;
     }
 
     return args.map(castToExec);
