@@ -49,10 +49,12 @@ export class TxExecutor {
     };
 }
 
+
+
 /**
  * Promise-safe callback iterator for pipe transactions
  * @param callbacks
- * @returns {{next: (function(*=): *)}}
+ * @returns {function(*=)}
  * @private
  */
 const _cbIterator = (...callbacks) => {
@@ -84,3 +86,5 @@ const _cbIterator = (...callbacks) => {
         },
     };
 };
+
+

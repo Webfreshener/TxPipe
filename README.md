@@ -45,3 +45,4 @@ Observable Transaction Pipes with JSON-Schema Validation
 | txThrottle | rate (number) | Limit notifications to rate based on time interval |
 | txUnlink | target (Pipe)| Unlinks `pipe` segment from target `pipe` |
 | txWrite | data (object/array)| Writes data to `pipe` |
+| txYield | data (object/array)| Executes `pipe` as generator, yielding output via `next` iterator callback |

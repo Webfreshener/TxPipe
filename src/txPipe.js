@@ -24,9 +24,10 @@ SOFTWARE.
 
 ############################################################################ */
 import {_observers, TxValidator} from "./txValidator";
-import {fillCallback, mapArgs} from "./txUtils";
+import {fillCallback, mapArgs, wrapCallback} from "./txUtils";
 import {TxExecutor} from "./TxExecutor";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema";
+import {TxProperties} from "./txProperties";
 
 const _pipes = new WeakMap();
 const _cache = new WeakMap();
@@ -36,9 +37,12 @@ const _cache = new WeakMap();
  */
 export class TxPipe {
     constructor(...pipesOrVOsOrSchemas) {
+        _pipes.set(this, {});
+        _cache.set(this, []);
+
         pipesOrVOsOrSchemas = mapArgs(pipesOrVOsOrSchemas[0]);
         pipesOrVOsOrSchemas = Array.isArray(pipesOrVOsOrSchemas[0]) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas;
-        _cache.set(this, []);
+
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
         const _callbacks = fillCallback(
             pipesOrVOsOrSchemas.map((_p) => (d) => {
@@ -68,40 +72,20 @@ export class TxPipe {
             _inSchema ||
             DefaultVOSchema;
 
-        const _inVO = (_inPipe instanceof TxValidator) ? _inPipe : new TxValidator(_inSchema);
-
         // stores config & state
-        _pipes.set(this, {
-            // references the intake Validator object
-            vo: _inVO,
-            // holds `sample` interval
-            ivl: 0,
-            // holds `sample` interval count
-            ivlVal: 0,
-            // holder for `throttle` rate
-            rate: 1,
-            // references the output schema
-            schema: [_inSchema, _outSchema],
-            // references the output validator
-            out: (() => {
-                const _txV = new TxValidator(_outSchema);
-                // unsubscribe all observers on complete notification (freeze/close)
-                _txV.subscribe({
-                    complete: () => {
-                        _pipes.get(this).listeners.forEach((_l) => _l.unsubscribe());
-                        _pipes.get(this).listeners = [];
-                    },
-                });
-                return _txV;
-            })(),
-            listeners: [],
-            // holder for linked pipe references
-            links: new WeakMap(),
-            // initializes callback handler
-            cb: (_res = false) => TxExecutor.exec(_callbacks, _res),
-        });
+        _pipes.set(this,
+            TxProperties.init(this, {
+                vo: (_inPipe instanceof TxValidator) ? _inPipe : new TxValidator(_inSchema),
+                callbacks: _callbacks,
+                inSchema: _inSchema,
+                outSchema: _outSchema,
+                pOS: pipesOrVOsOrSchemas,
+                _pipes: _pipes,
+            }),
+        );
 
-        const _self = this;
+        _pipes.get(this).ivl = 0;
+        _pipes.get(this).ivlVal = 0;
         _pipes.get(this).listeners = [PipeListener.create(this)];
     }
 
@@ -202,6 +186,23 @@ export class TxPipe {
     }
 
     /**
+     * Iterates pipe callbacks via generator function
+     * @param data
+     * @returns {generator}
+     */
+    txYield(data) {
+        const _ = new Function("$scope", "$cb",
+            [
+                "return (function* (data) {",
+                Object.keys(_pipes.get(this).callbacks || [(d) => d])
+                    .map((_) => `yield data = ($cb[${_}].bind($scope))(data)`)
+                    .join("; "),
+                "}).bind($scope);",
+            ].join(" "));
+        return _(this, _pipes.get(this).callbacks)(data);
+    }
+
+    /**
      * Merges multiple pipes into single output
      * @param pipeOrPipes
      * @param pipeOrSchema
@@ -240,7 +241,7 @@ export class TxPipe {
      * @param data
      */
     exec(data) {
-        return _pipes.get(this).cb(data);
+        return _pipes.get(this).exec(data);
     }
 
     /**
@@ -257,7 +258,6 @@ export class TxPipe {
         };
         return new _cz();
     }
-
 
     /**
      * Terminates input on `txPipe` segment. This is irrevocable
@@ -403,7 +403,7 @@ export class PipeListener {
         }
 
         // capture output of callback
-        const _t = _pipes.get(this.target).cb(data);
+        const _t = _pipes.get(this.target).exec(data);
 
         // tests if object and if object is writable
         if ((typeof _t) === "object" && this.target.txWritable) {

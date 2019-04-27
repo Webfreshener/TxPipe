@@ -26,6 +26,7 @@ SOFTWARE.
 import {TxPipe} from "./txPipe";
 import {TxValidator} from "./txValidator";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema"
+
 /**
  * Fills array to enforce 2 callback minimum
  * @param arr
@@ -89,6 +90,28 @@ export const castToExec = (obj) => {
     // attempts to map to Tx-able object
     return Object.assign(_def, obj);
 };
+
+/**
+ *
+ * @param cb
+ * @returns {function(*): any}
+ */
+export const handleAsync = (cb) => (async (d) => await new Promise(
+    (resolve) => d.then((_) => resolve(cb(_)))
+));
+
+/**
+ *
+ * @param cb
+ * @returns {Function}
+ */
+export const wrapCallback = (cb) => ((dataOrPromise) => {
+    if (dataOrPromise instanceof Promise) {
+        // delegates Promise
+        return handleAsync(dataOrPromise);
+    }
+    return cb(dataOrPromise)
+});
 
 /**
  *

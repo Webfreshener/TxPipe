@@ -37,7 +37,6 @@ describe("TxPipes tests", () => {
             expect(Object.keys(_p.txTap()).length).toEqual(0);
         });
 
-
         it("should work with Promises", (done) => {
             const _p = new TxPipe(_pipesOrSchemas);
             _p.txPromise(data).then((res) => {
@@ -158,6 +157,13 @@ describe("TxPipes tests", () => {
             expect(_inline.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
             expect(_inline.txTap()[data.length - 1].age).toEqual(99);
             _inline.txClose();
+        });
+
+        it("should be iterable with txYield", () => {
+            const _ = _p.txYield(data);
+            _.next();
+            expect(_.next().value.length).toEqual(3);
+            expect(_.next().done).toBe(true);
         });
 
         it("should throttle notifications based on time interval", () => {
