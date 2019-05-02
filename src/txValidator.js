@@ -70,7 +70,6 @@ export class TxValidator {
         Object.defineProperty(this, "schema", {
             get: () => schemaOrConfig || {schemas:[DefaultVO]},
             enumerable: true,
-            configurable: false,
         });
 
         const _baseSchema = schemaOrConfig.schemas[schemaOrConfig.schemas.length - 1] || DefaultVO;

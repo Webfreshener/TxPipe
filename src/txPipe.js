@@ -195,7 +195,7 @@ export class TxPipe {
             [
                 "return (function* (data) {",
                 Object.keys(_pipes.get(this).callbacks || [(d) => d])
-                    .map((_) => `yield data = ($cb[${_}].bind($scope))(data)`)
+                    .map((_) => `yield data=($cb[${_}].bind($scope))(data)`)
                     .join("; "),
                 "}).bind($scope);",
             ].join(" "));
