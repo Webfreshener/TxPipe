@@ -36,33 +36,34 @@ const _cache = new WeakMap();
  * TxPipe Class
  */
 export class TxPipe {
-    static getExecs(_pvs) {
-        return _pvs.map((_p) => ((d) => {
-            return (
-                // is pipe or implements pipe api
-                (_p.exec) ||
-                // is validator or implements validator api
-                (_p.validate ? (
-                    (d) => _p.validate(d) ? d : false
-                ) : void (0)) ||
-                // default
-                ((_) => _)
-            ).apply(_p, [d])
-    })
+    static getExecs(_pvs = []) {
+        return _pvs.map(
+            (_p) => {
+                return (d) => {
+                    _p = Array.isArray(_p) ? _p[0] : _p;
+                    return (
+                        // is pipe or implements pipe api
+                        (_p.exec) ||
+                        // is validator or implements validator api
+                        (_p.validate ? ((d) => _p.validate(d) ? d : false) : void 0) ||
+                        // default
+                        ((_) => _)
+                    ).apply(_p, [d]);
+                }
+            }
         );
     }
 
-
+    /**
+     *
+     * @param pipesOrVOsOrSchemas
+     */
     constructor(...pipesOrVOsOrSchemas) {
         _pipes.set(this, {});
         _cache.set(this, []);
-
-        pipesOrVOsOrSchemas = [].concat(mapArgs(...pipesOrVOsOrSchemas));
+        pipesOrVOsOrSchemas = mapArgs([].concat(...pipesOrVOsOrSchemas));
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
         const _callbacks = fillCallback(TxPipe.getExecs(pipesOrVOsOrSchemas));
-
-        console.log(`_callbacks: ${_callbacks[0]}`);
-
         const _inPipe = (
             Array.isArray(pipesOrVOsOrSchemas) && pipesOrVOsOrSchemas.length
         ) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas.length ?
@@ -71,27 +72,13 @@ export class TxPipe {
                 exec: (d) => d,
             };
 
-        // const _inSchema = _inPipe.schema[0] ||
-        //     (Array.isArray(_inPipe.schema.schemas) ? _inPipe.schema.schemas[0] : void (0)) ||
-        //     DefaultVOSchema;
-        //
-        // const _outSchema = _outPipe.schema && _outPipe.schema[1] ? _outPipe.schema[1] :
-        //     (_outPipe.schema && _outPipe.schema.schemas ?
-        //         _outPipe.schema.schemas[_outPipe.schema.schemas.length - 1] : void (0)) ||
-        //     _inSchema ||
-        //     DefaultVOSchema;
-        //
-        // const _outPipe = pipesOrVOsOrSchemas.length ?
-        //     pipesOrVOsOrSchemas[pipesOrVOsOrSchemas.length - 1] :
-        //     pipesOrVOsOrSchemas;
-
-        const _pSchemas = [].concat(pipesOrVOsOrSchemas.filter((_p) => {
+        const _pSchemas = [].concat([].concat(...pipesOrVOsOrSchemas).filter((_p) => {
             return (_p instanceof TxValidator) || (_p.hasOwnProperty("schema") && (
                 Array.isArray(_p.schema) || TxValidator.validateSchemas(_p.schema)
             ));
         }));
 
-        const _getInSchema = (schemas) => {
+        const _getInSchema = () => {
             if (_pSchemas.length) {
                 return (_pSchemas[0] instanceof TxValidator) ?
                     _pSchemas[0].schema : _pSchemas[0];
@@ -99,8 +86,10 @@ export class TxPipe {
             return DefaultVOSchema;
         };
 
-        const _inSchema = _getInSchema(_pSchemas);
+        const _inSchema = _getInSchema();
         const _outSchema = _pSchemas.length > 1 ? _pSchemas[_pSchemas.length - 1] : _inSchema;
+
+        console.log(`pipesOrVOsOrSchemas: ${pipesOrVOsOrSchemas}`);
 
         // stores config & state
         _pipes.set(this,
@@ -125,7 +114,7 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txPipe(...pipesOrSchemas) {
-        return new TxPipe([].concat(_pipes.get(this).out, pipesOrSchemas));
+        return new TxPipe([].concat(_pipes.get(this).out, ...pipesOrSchemas));
     }
 
     get schema() {
@@ -209,59 +198,47 @@ export class TxPipe {
      * @param schemasOrPipes
      * @returns {*}
      */
-    txSplit(...schemasOrPipes) {
-        return (
-            Array.isArray(schemasOrPipes[0]) ? schemasOrPipes[0] : schemasOrPipes
-        ).map((o) => this.txPipe(o));
+    txSplit(schemasOrPipes) {
+        return schemasOrPipes.map((_) => this.txPipe(_));
     }
+
+    // /**
+    //  * Iterates pipe callbacks via generator function
+    //  * @param data
+    //  * @returns {generator}
+    //  */
+    // txYield(data) {
+    //     const _fill = TxPipe.getExecs(_pipes.get(this).pOS[0]);
+    //     const _f = new Function("$scope", "$cb",
+    //         [
+    //             "return (function* (data) { console.log(`$cb: ${$cb[0]}`); ",
+    //             // todo: review this loop
+    //             (_fill.length ? _fill : [(d) => d])
+    //                 .map((_) => `yield data=($cb[${_}].bind($scope))(data)`)
+    //                 .join("; "),
+    //             "}).bind($scope);",
+    //         ].join(" "));
+    //     const _tx = _f(this, _fill)(data);
+    //     _tx.next();
+    //     return _tx;
+    // }
 
     /**
      * Iterates pipe callbacks via generator function
      * @param data
      * @returns {generator}
      */
-    /**
-     *
-     * @param data
-     * @returns {Object|Array}
-     */
     txYield(data) {
-        // const _fill = fillCallback(_pipes.get(this).pOS.map((_p) => (d) => {
-        //         // todo: DRY this out
-        //         return (
-        //             // if implements pipe api
-        //             (_p.exec) ||
-        //             // if implements validator api
-        //             (_p.validate ? ((d) => _p.validate(d) ? d : false) : void (0)) ||
-        //             // default
-        //             ((_) => _)
-        //         ).apply(_p, [d]);
-        //     }
-        // ));
-        const _fill = _pipes.get(this).pOS.map((_p) => (d) => {
-                // todo: DRY this out
-                return (
-                    // if implements pipe api
-                    (_p.exec) ||
-                    // if implements validator api
-                    (_p.validate ? ((d) => _p.validate(d) ? d : false) : void (0)) ||
-                    // default
-                    ((_) => _)
-                ).apply(_p, [d]);
-            }
-        );
-        const _f = new Function("$scope", "$cb",
-            [
+        const _fill = TxPipe.getExecs(_pipes.get(this).pOS);
+        const _ = new Function("$scope", "$cb", [
                 "return (function* (data) {",
-                Object.keys(_fill.length ? _fill : [(d) => d])
+                Object.keys([..._fill] || [(d) => d])
                     .map((_) => `yield data = ($cb[${_}].bind($scope))(data)`)
                     .join("; "),
                 "}).bind($scope);",
             ].join(" "));
-
-        const _tx = _f(this, _pipes.get(this).callbacks)(data);
-        _tx.next();
-        return _tx;
+        console.log(`${_fill}`);
+        return _(this, _fill)(data);
     }
 
     /**
@@ -421,10 +398,12 @@ export class TxPipe {
     async txPromise(data) {
         return await new Promise((resolve, reject) => {
             this.txWrite(data);
+            console.log(`${this.txErrors}`);
             if (this.txErrors !== null) {
+                console.log("got errors");
                 reject(this.txErrors);
             }
-            resolve(this);
+            resolve(this.txTap());
         });
     }
 
@@ -470,7 +449,7 @@ export class PipeListener {
             // tics the counter and tests if count is fulfilled
             if ((++_pipes.get(this.target).ivlVal) !== _pipes.get(this.target).ivl) {
                 // count is not fulfilled. stops the execution
-                return;
+                return void 0;
             } else {
                 // resets the count and lets the operation proceed
                 _pipes.get(this.target).ivlVal = 0;
@@ -496,6 +475,8 @@ export class PipeListener {
             }
 
             _out(_t);
+        } else {
+            _observers.get(_pipes.get(this.target).out).error("value was malformed");
         }
     }
 

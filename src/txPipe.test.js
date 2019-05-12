@@ -14,7 +14,7 @@ const _pipesOrSchemas = [{
         schemas: [_schemaLess],
     },
     exec: (d) => {
-        return d ? d.filter((is) => is.active) : false;
+        return Array.isArray(d) ? d.filter((is) => is.active) : false
     },
 }];
 
@@ -32,8 +32,7 @@ describe("TxPipes tests", () => {
         });
 
         it("should exec and not modify contents", () => {
-            const _p = new TxPipe(_pipesOrSchemas);
-            console.log(_p.txYield(data).next());
+            const _p = new TxPipe(..._pipesOrSchemas);
             expect(_p.exec(data).length).toEqual(3);
             expect(Object.keys(_p.txTap()).length).toEqual(0);
 
@@ -42,7 +41,7 @@ describe("TxPipes tests", () => {
         it("should work with Promises", (done) => {
             const _p = new TxPipe(_pipesOrSchemas);
             _p.txPromise(data).then((res) => {
-                expect(res.txTap().length).toEqual(3);
+                expect(res.length).toEqual(3);
                 done();
             }, done).catch(done);
         });
@@ -54,9 +53,9 @@ describe("TxPipes tests", () => {
                     _sub.unsubscribe();
                     done("pipe should have errored");
                 },
-                error: () => {
+                error: (e) => {
                     _sub.unsubscribe();
-                    expect(_p.txErrors !== null).toBe(true);
+                    expect(e !== null).toBe(true);
                     done();
                 },
             });
@@ -114,37 +113,45 @@ describe("TxPipes tests", () => {
                 {
                     exec: (d) => d.map((m) => Object.assign(m, {age: 99})),
                 },
-            ].map((o) => Object.assign(o, _vo));
+            ];
 
             const _cb = jest.fn();
-            _p = new TxPipe({exec: (d) => d});
+            _p = new TxPipe({
+                exec: (d) => d
+            });
+
             const _split = _p.txSplit(_config);
             expect(_split.length).toEqual(2);
+
             _split.forEach((pipe) => {
-                const _sub = pipe.subscribe.apply(pipe, [{
-                    next: (m) => {
+                const _sub = pipe.subscribe({
+                    next: () => {
                         _cb();
                         _sub.unsubscribe();
                     },
                     error: (e) => {
+                        _sub.unsubscribe();
                         throw e;
                     }
-                }]);
+                });
             });
-            _p.txWrite(data);
-            expect(_cb).toHaveBeenCalledTimes(2);
-            expect(_split[0].txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-            expect(_split[1].txTap()[0].age).toEqual(99);
+
+            setTimeout(() => {
+                _p.txWrite(data);
+                expect(_cb).toHaveBeenCalledTimes(2);
+                expect(_split[0].txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+                expect(_split[1].txTap()[0].age).toEqual(99);
+            }, 10);
         });
 
         it("should exec multiple pipes inline", () => {
             const _p1 = new TxPipe({
-                schema: _vo.schema,
+                schema: _schemaLess,
                 exec: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
             });
 
             const _p2 = new TxPipe({
-                schema: _vo.schema,
+                schema: _schemaLess,
                 exec: (d) => d.map((m) => Object.assign(m, {age: 99})),
             });
 
@@ -152,49 +159,56 @@ describe("TxPipes tests", () => {
 
             _inline.txWrite(data);
 
-            expect(JSON.stringify(_inline.txSchema[0])).toEqual(JSON.stringify([].concat(_vo.schema.schemas).pop()));
-            expect(_inline.txTap().length).toEqual(data.length);
-            expect(_inline.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-            expect(_inline.txTap()[0].age).toEqual(99);
-            expect(_inline.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-            expect(_inline.txTap()[data.length - 1].age).toEqual(99);
-            _inline.txClose();
+            setTimeout(() => {
+                expect(JSON.stringify(_inline.txSchema[0].schemas[0].schema)).toEqual(JSON.stringify(_schemaLess));
+                expect(_inline.txTap().length).toEqual(data.length);
+                expect(_inline.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+                expect(_inline.txTap()[0].age).toEqual(99);
+                expect(_inline.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+                expect(_inline.txTap()[data.length - 1].age).toEqual(99);
+                _inline.txClose();
+            }, 0);
+
         });
 
         it("should be iterable with txYield", () => {
 
-            const _x = (new TxPipe(
-                new TxPipe({
+            const _x = (new TxPipe({
                     exec: () => {
                         console.log("hello");
-                        return {};
+                        return "hello";
                     },
-                }),
+                },
                 new TxPipe({
                     exec: () => {
                         console.log("i love you");
-                        return {};
+                        return "i love you";
                     },
                 }),
                 {
                     exec: () => {
                         console.log("won't you tell me your name");
-                        return {};
+                        return "won't you tell me your name";
+                    },
+                },
+                {
+                    exec: () => {
+                        console.log("goodbye");
+                        return "goodbye";
                     },
                 }
             )).txYield();
-            _x.next();
-            _x.next();
-            _x.next();
-            _x.next();
-
-
+            // _x.next();
+            // _x.next();
+            // _x.next();
+            // _x.next();
 
             const _ = _p.txYield(data);
-            expect(_.next().value.length).toEqual(3);
+            console.log(_.next());
+            console.log(_.next());
+            console.log(_.next());
+            expect(_.next().value).toEqual(3);
             expect(_.next().done).toBe(true);
-
-
         });
 
         it("should throttle notifications based on time interval", () => {
