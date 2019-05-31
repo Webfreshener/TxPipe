@@ -23,6 +23,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ############################################################################ */
+import {wrapCallback} from "./txUtils";
+
 export class TxExecutor {
     /**
      *
@@ -54,7 +56,7 @@ export class TxExecutor {
 /**
  * Promise-safe callback iterator for pipe transactions
  * @param callbacks
- * @returns {function(*=)}
+ * @returns {{next: (function(*=): *)}}
  * @private
  */
 const _cbIterator = (...callbacks) => {
@@ -62,22 +64,11 @@ const _cbIterator = (...callbacks) => {
     if (Array.isArray(callbacks[0])) {
         callbacks = callbacks[0];
     }
-    const _handler = (callback, dataOrPromise) => {
-        // tests if Promise
-        if (dataOrPromise instanceof Promise) {
-            // delegates Promise
-            return (async (d) => await new Promise(
-                    (resolve) => d.then((_) => resolve(callback(_)))
-                )
-            )(dataOrPromise);
-        }
-        return callback(dataOrPromise);
-    };
 
     return {
         next: (data) => {
             return (_idx++ < (callbacks.length - 1)) ? {
-                value: ((data) => _handler(callbacks[_idx], data))(data),
+                value: (wrapCallback(callbacks[_idx]))(data),
                 done: false,
             } : {
                 value: data || false,
