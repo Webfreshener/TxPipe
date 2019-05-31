@@ -224,7 +224,7 @@ describe("TxPipes tests", () => {
             expect(_cb).toHaveBeenCalledTimes(1);
         });
 
-        it("should clone existing `pipe`", () => {
+        it("should clone existing pipe", () => {
             let _cnt = 0;
 
             const _h = () => _cnt++;

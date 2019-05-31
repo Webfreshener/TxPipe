@@ -50,14 +50,6 @@ export const fill = (arr, value = ((d) => d), min = 2) => {
 
 /**
  *
- * @param arr
- * @returns {any[]}
- * @deprecated
- */
-export const fillCallback = (arr) => fill(arr); //fill(Array.isArray(arr) ? arr : [arr], (d) => d);
-
-/**
- *
  * @param obj
  * @returns {{exec: function}|TxPipe|TxValidator}
  */
@@ -111,7 +103,6 @@ export const wrapCallback = (cb) => ((dataOrPromise) => {
     }
     return cb(dataOrPromise)
 });
-
 
 /**
  *

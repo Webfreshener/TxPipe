@@ -24,7 +24,7 @@ SOFTWARE.
 
 ############################################################################ */
 import {_observers, TxValidator} from "./txValidator";
-import {fillCallback, fill, mapArgs} from "./txUtils";
+import {fill, mapArgs} from "./txUtils";
 import {TxExecutor} from "./TxExecutor";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema";
 import {TxProperties} from "./txProperties";
@@ -141,7 +141,7 @@ export class TxPipe {
             callbacks = callbacks[0];
         }
 
-        callbacks = fillCallback(callbacks || []);
+        callbacks = fill(callbacks || []);
 
         // creates observer and stores it to links map for `txPipe`
         const _sub = this.subscribe({
@@ -228,7 +228,7 @@ export class TxPipe {
                 "}).bind($scope);",
             ].join(" "));
 
-        return  _f(this, _fill)(data);
+        return _f(this, _fill)(data);
     }
 
     /**
@@ -265,14 +265,6 @@ export class TxPipe {
         return this;
     }
 
-    // /**
-    //  * Directly executes callback without effecting `txPipe` observable
-    //  * @param data
-    //  */
-    // exec(data) {
-    //     return _pipes.get(this).exec(data);
-    // }
-
     /**
      * Creates clone of current `txPipe` segment
      * todo: make this safe
@@ -284,18 +276,7 @@ export class TxPipe {
             constructor() {
                 super();
                 _pipes.set(this, $ref);
-                // -- this is where we need to sanitize the clone
-                //     TxProperties.init(this, {
-                //         vo: _pipes.get(this).vo,
-                //         callbacks: $ref.callbacks,
-                //         inSchema: $ref.schema[0],
-                //         outSchema: $ref.schema[1],
-                //         pOS: $ref.pOS,
-                //         _pipes: _pipes,
-                //     }),
-                // );
-                // _pipes.get(this).listeners = [].concat($ref.listeners);
-                // console.log(_pipes.get(this).listeners);
+                _pipes.get(this).listeners = [].concat($ref.listeners);
             }
         };
         return new _cz();

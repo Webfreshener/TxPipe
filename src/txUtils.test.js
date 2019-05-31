@@ -1,4 +1,4 @@
-import {fill, fillCallback} from "./txUtils";
+import {fill} from "./txUtils";
 
 describe("TxUtils Tests", () => {
     describe("fill tests", () => {
@@ -8,24 +8,9 @@ describe("TxUtils Tests", () => {
             expect(_[0]().ok).toBe(true);
             expect(_[1]().ok).toBe(true);
         });
-        it("should not replace existing values", () => {
-            const _ = fill([() => ({ok: true})], (d) => d);
-            expect(_.length).toEqual(2);
-            expect(_[0]({ok: false}).ok).toBe(true);
-            expect(_[1]({ok: false}).ok).toBe(false);
-        });
-    });
-
-    describe("fillCallback tests", () => {
-        it("should fill callbacks array to a minimum of two", () => {
-            const _ = fillCallback([]);
-            expect(_.length).toEqual(2);
-            expect(_[0]({ok: true}).ok).toBe(true);
-            expect(_[1]({ok: true}).ok).toBe(true);
-        });
 
         it("should handle many callbacks", () => {
-            const _ = fillCallback([
+            const _ = fill([
                 () => ({ok: true}),
                 () => ({ok: true}),
                 () => ({ok: true}),
@@ -37,14 +22,12 @@ describe("TxUtils Tests", () => {
             expect(_[_.length - 1]({ok: true}).ok).toBe("yada-yada");
         });
 
-        it("should not replace existing callbacks", () => {
-            const _ = fillCallback([() => ({ok: true})]);
+
+        it("should not replace existing values", () => {
+            const _ = fill([() => ({ok: true})], (d) => d);
             expect(_.length).toEqual(2);
             expect(_[0]({ok: false}).ok).toBe(true);
             expect(_[1]({ok: false}).ok).toBe(false);
         });
-
     });
-
-
 });
