@@ -24,7 +24,7 @@ SOFTWARE.
 
 ############################################################################ */
 import {_observers, TxValidator} from "./txValidator";
-import {fillCallback, mapArgs} from "./txUtils";
+import {fillCallback, fill, mapArgs} from "./txUtils";
 import {TxExecutor} from "./TxExecutor";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema";
 import {TxProperties} from "./txProperties";
@@ -36,22 +36,20 @@ const _cache = new WeakMap();
  * TxPipe Class
  */
 export class TxPipe {
-    static getExecs(_pvs = []) {
-        return _pvs.map(
-            (_p) => {
-                return (d) => {
-                    _p = Array.isArray(_p) ? _p[0] : _p;
-                    return (
-                        // is pipe or implements pipe api
-                        (_p.exec) ||
-                        // is validator or implements validator api
-                        (_p.validate ? ((d) => _p.validate(d) ? d : false) : void 0) ||
-                        // default
-                        ((_) => _)
-                    ).apply(_p, [d]);
-                }
-            }
-        );
+    static getExecs(..._pvs) {
+        return _pvs.map((_p) => {
+            _p = Array.isArray(_p) ? _p[0] : _p;
+            return (d) => {
+                const _exec = ((typeof _p === "function") ? _p : void 0) ||
+                    // is pipe or implements pipe api
+                    (_p["exec"]) ||
+                    // is validator or implements validator api
+                    (_p["validate"] ? ((d) => _p["validate"](d) ? d : false) : void 0) ||
+                    // default
+                    ((_) => _);
+                return (_exec).apply(null, [d]);
+            };
+        });
     }
 
     /**
@@ -61,9 +59,10 @@ export class TxPipe {
     constructor(...pipesOrVOsOrSchemas) {
         _pipes.set(this, {});
         _cache.set(this, []);
-        pipesOrVOsOrSchemas = mapArgs([].concat(...pipesOrVOsOrSchemas));
+
+        pipesOrVOsOrSchemas = mapArgs(...pipesOrVOsOrSchemas);
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
-        const _callbacks = fillCallback(TxPipe.getExecs(pipesOrVOsOrSchemas));
+        const _callbacks = fill(TxPipe.getExecs(...pipesOrVOsOrSchemas));
         const _inPipe = (
             Array.isArray(pipesOrVOsOrSchemas) && pipesOrVOsOrSchemas.length
         ) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas.length ?
@@ -89,8 +88,6 @@ export class TxPipe {
         const _inSchema = _getInSchema();
         const _outSchema = _pSchemas.length > 1 ? _pSchemas[_pSchemas.length - 1] : _inSchema;
 
-        console.log(`pipesOrVOsOrSchemas: ${pipesOrVOsOrSchemas}`);
-
         // stores config & state
         _pipes.set(this,
             TxProperties.init(this, {
@@ -106,6 +103,13 @@ export class TxPipe {
         _pipes.get(this).ivl = 0;
         _pipes.get(this).ivlVal = 0;
         _pipes.get(this).listeners = [PipeListener.create(this)];
+
+        // define exec in constructor to ensure method visibility
+        Object.defineProperty(this, "exec", {
+            value: (data) => _pipes.get(this).exec(data),
+            enumerable: true,
+            configurable: false,
+        });
     }
 
     /**
@@ -202,43 +206,29 @@ export class TxPipe {
         return schemasOrPipes.map((_) => this.txPipe(_));
     }
 
-    // /**
-    //  * Iterates pipe callbacks via generator function
-    //  * @param data
-    //  * @returns {generator}
-    //  */
-    // txYield(data) {
-    //     const _fill = TxPipe.getExecs(_pipes.get(this).pOS[0]);
-    //     const _f = new Function("$scope", "$cb",
-    //         [
-    //             "return (function* (data) { console.log(`$cb: ${$cb[0]}`); ",
-    //             // todo: review this loop
-    //             (_fill.length ? _fill : [(d) => d])
-    //                 .map((_) => `yield data=($cb[${_}].bind($scope))(data)`)
-    //                 .join("; "),
-    //             "}).bind($scope);",
-    //         ].join(" "));
-    //     const _tx = _f(this, _fill)(data);
-    //     _tx.next();
-    //     return _tx;
-    // }
-
     /**
      * Iterates pipe callbacks via generator function
      * @param data
      * @returns {generator}
      */
     txYield(data) {
-        const _fill = TxPipe.getExecs(_pipes.get(this).pOS);
-        const _ = new Function("$scope", "$cb", [
-                "return (function* (data) {",
-                Object.keys([..._fill] || [(d) => d])
-                    .map((_) => `yield data = ($cb[${_}].bind($scope))(data)`)
+        let _fill = _pipes.get(this).pOS.map((_) => _.exec || ((_) => _));
+        // let _fill = TxPipe.getExecs(_pipes.get(this).pOS);
+
+        if (!_fill.length) {
+            _fill[0] = (d) => d;
+        }
+
+        const _f = new Function("$scope", "$cb",
+            [
+                "return (function* (data) { ",
+                Object.keys(_fill)
+                    .map((_) => `yield data=($cb[${_}].bind($scope))(data)`)
                     .join("; "),
                 "}).bind($scope);",
             ].join(" "));
-        console.log(`${_fill}`);
-        return _(this, _fill)(data);
+
+        return  _f(this, _fill)(data);
     }
 
     /**
@@ -275,13 +265,13 @@ export class TxPipe {
         return this;
     }
 
-    /**
-     * Directly executes callback without effecting `txPipe` observable
-     * @param data
-     */
-    exec(data) {
-        return _pipes.get(this).exec(data);
-    }
+    // /**
+    //  * Directly executes callback without effecting `txPipe` observable
+    //  * @param data
+    //  */
+    // exec(data) {
+    //     return _pipes.get(this).exec(data);
+    // }
 
     /**
      * Creates clone of current `txPipe` segment
@@ -398,9 +388,7 @@ export class TxPipe {
     async txPromise(data) {
         return await new Promise((resolve, reject) => {
             this.txWrite(data);
-            console.log(`${this.txErrors}`);
             if (this.txErrors !== null) {
-                console.log("got errors");
                 reject(this.txErrors);
             }
             resolve(this.txTap());

@@ -172,42 +172,23 @@ describe("TxPipes tests", () => {
         });
 
         it("should be iterable with txYield", () => {
-
-            const _x = (new TxPipe({
-                    exec: () => {
-                        console.log("hello");
-                        return "hello";
-                    },
+            const _pOS = [
+                {
+                    exec: () =>  "foo",
                 },
                 new TxPipe({
-                    exec: () => {
-                        console.log("i love you");
-                        return "i love you";
-                    },
+                    exec: () => "bar",
                 }),
                 {
-                    exec: () => {
-                        console.log("won't you tell me your name");
-                        return "won't you tell me your name";
-                    },
+                    exec: () =>  "baz",
                 },
-                {
-                    exec: () => {
-                        console.log("goodbye");
-                        return "goodbye";
-                    },
-                }
-            )).txYield();
-            // _x.next();
-            // _x.next();
-            // _x.next();
-            // _x.next();
+            ];
 
-            const _ = _p.txYield(data);
-            console.log(_.next());
-            console.log(_.next());
-            console.log(_.next());
-            expect(_.next().value).toEqual(3);
+            const _ = (new TxPipe(..._pOS)).txYield(data);
+
+            expect(_.next().value).toBe("foo");
+            expect(_.next().value).toBe("bar");
+            expect(_.next().value).toBe("baz");
             expect(_.next().done).toBe(true);
         });
 
@@ -258,9 +239,6 @@ describe("TxPipes tests", () => {
             expect(_cnt).toEqual(2);
 
             _cnt = 0;
-
-            // _p.txWrite(data);
-            // expect(_cnt).toEqual(1);
 
             _sub1.unsubscribe();
             _sub2.unsubscribe();
@@ -403,24 +381,14 @@ describe("TxPipes tests", () => {
         const _res = {body: "yada-yada"};
         it("should sub class", () => {
             const _unit = new TxPipe({
-                exec: (d) => {
+                exec: () => {
                     return _res
                 },
             });
             const _ = new TestSubClass(_unit);
-            // const _ = new TestSubClass();
             expect(_unit.txWrite(_data).txTap()).toEqual(_res);
             expect(_.txWrite(_data).txTap()).toEqual(_res);
         });
-        // it.skip("should nest", (done) => {
-        //     const _ = new TestUser(new TxPipe({
-        //             exec: () => {
-        //                 body: "ok"
-        //             },
-        //         })
-        //     );
-        //     expect(_.exec(_data).pipe.txTap()).toEqual(_data);
-        // });
     });
 
 });

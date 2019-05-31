@@ -38,7 +38,8 @@ const DefaultPipeTx = {
  * @param min
  * @returns {any[]}
  */
-export const fill = (arr, value, min = 2) => {
+export const fill = (arr, value = ((d) => d), min = 2) => {
+    arr = [].concat(arr);
     if (arr.length >= min) {
         return arr;
     }
@@ -51,8 +52,9 @@ export const fill = (arr, value, min = 2) => {
  *
  * @param arr
  * @returns {any[]}
+ * @deprecated
  */
-export const fillCallback = (arr) => fill(Array.isArray(arr) ? arr : [arr], (d) => d);
+export const fillCallback = (arr) => fill(arr); //fill(Array.isArray(arr) ? arr : [arr], (d) => d);
 
 /**
  *
@@ -76,7 +78,7 @@ export const castToExec = (obj) => {
 
     // -- if is pipe config item, we normalize for intake
     if ((typeof obj.exec) === "function") {
-        return Object.assign(DefaultPipeTx, obj);
+        return Object.assign({}, DefaultPipeTx, obj);
     }
 
     // -- if is straight up schema, we create validator instance
@@ -85,7 +87,7 @@ export const castToExec = (obj) => {
     }
 
     // attempts to map to Tx-able object
-    return Object.assign(DefaultPipeTx, obj);
+    return Object.assign({}, DefaultPipeTx, obj);
 };
 
 /**
@@ -110,16 +112,17 @@ export const wrapCallback = (cb) => ((dataOrPromise) => {
     return cb(dataOrPromise)
 });
 
+
 /**
  *
  * @param args
- * @returns {any[]|{schema: *, exec: (function(*): *)}}
- * @private
+ * @returns {*[]|{schema: {schema, anyOf, $id}, exec: (function(*): *)}[]}
  */
 export const mapArgs = (...args) => {
     if (!args.length) {
-        return DefaultPipeTx;
+        return [DefaultPipeTx, DefaultPipeTx];
     }
 
-    return args.map(castToExec);
+    // normalizes args list and wraps in txPipe Protocol
+    return [].concat(...args).map(castToExec);
 };
