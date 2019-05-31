@@ -76,5 +76,3 @@ const _cbIterator = (...callbacks) => {
         },
     };
 };
-
-

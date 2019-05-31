@@ -1,4 +1,4 @@
-import {TxExecutor} from "./txExecutor";
+import {_txExecutor} from "./txExecutor";
 import {TxPipe} from "./txPipe";
 
 const _iterators = new WeakMap();
@@ -15,6 +15,6 @@ export class TxIterator {
     }
 
     loop(records) {
-        return records.map((_) => TxExecutor.exec(_iterators.get(this), _));
+        return records.map((_) => _txExecutor.exec(_iterators.get(this), _));
     }
 }

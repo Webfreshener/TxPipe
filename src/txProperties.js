@@ -23,8 +23,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ############################################################################ */
-import {TxExecutor} from "./txExecutor";
-import {PipeListener} from "./txPipe";
 import {TxValidator} from "./txValidator";
 /**
  *
@@ -64,7 +62,7 @@ export class TxProperties {
             //     configurable: true,
             // },
             exec: {
-                value: (_ = false) => TxExecutor.exec(callbacks, _),
+                value: (_ = false) => _txExecutor.exec(callbacks, _),
                 enumerable: false,
                 configurable: false,
             },
