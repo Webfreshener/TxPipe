@@ -24,7 +24,7 @@ SOFTWARE.
 
 ############################################################################ */
 import {_observers, TxValidator} from "./txValidator";
-import {fillCallback, mapArgs, wrapCallback} from "./txUtils";
+import {fill, mapArgs} from "./txUtils";
 import {TxExecutor} from "./TxExecutor";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema";
 import {TxProperties} from "./txProperties";
@@ -36,41 +36,57 @@ const _cache = new WeakMap();
  * TxPipe Class
  */
 export class TxPipe {
+    static getExecs(..._pvs) {
+        return _pvs.map((_p) => {
+            _p = Array.isArray(_p) ? _p[0] : _p;
+            return (d) => {
+                const _exec = ((typeof _p === "function") ? _p : void 0) ||
+                    // is pipe or implements pipe api
+                    (_p["exec"]) ||
+                    // is validator or implements validator api
+                    (_p["validate"] ? ((d) => _p["validate"](d) ? d : false) : void 0) ||
+                    // default
+                    ((_) => _);
+                return (_exec).apply(null, [d]);
+            };
+        });
+    }
+
+    /**
+     *
+     * @param pipesOrVOsOrSchemas
+     */
     constructor(...pipesOrVOsOrSchemas) {
         _pipes.set(this, {});
         _cache.set(this, []);
 
-        pipesOrVOsOrSchemas = mapArgs(pipesOrVOsOrSchemas[0]);
-        pipesOrVOsOrSchemas = Array.isArray(pipesOrVOsOrSchemas[0]) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas;
-
+        pipesOrVOsOrSchemas = mapArgs(...pipesOrVOsOrSchemas);
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
-        const _callbacks = fillCallback(
-            pipesOrVOsOrSchemas.map((_p) => (d) => {
-                    return (
-                        // if implements pipe api
-                        (_p.exec) ||
-                        // if implements validator api
-                        (_p.validate ? ((d) => _p.validate(d) ? d : false) : void (0)) ||
-                        // default
-                        ((_) => _)
-                    ).apply(_p, [d]);
-                }
-            ),
-        );
+        const _callbacks = fill(TxPipe.getExecs(...pipesOrVOsOrSchemas));
+        const _inPipe = (
+            Array.isArray(pipesOrVOsOrSchemas) && pipesOrVOsOrSchemas.length
+        ) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas.length ?
+            pipesOrVOsOrSchemas : {
+                schema: [DefaultVOSchema, DefaultVOSchema],
+                exec: (d) => d,
+            };
 
-        const _inPipe = pipesOrVOsOrSchemas[0];
+        const _pSchemas = [].concat([].concat(...pipesOrVOsOrSchemas).filter((_p) => {
+            return (_p instanceof TxValidator) || (_p.hasOwnProperty("schema") && (
+                Array.isArray(_p.schema) || TxValidator.validateSchemas(_p.schema)
+            ));
+        }));
 
-        const _inSchema = _inPipe.schema[0] ||
-            (Array.isArray(_inPipe.schema.schemas) ? _inPipe.schema.schemas[0] : void (0)) ||
-            DefaultVOSchema;
+        const _getInSchema = () => {
+            if (_pSchemas.length) {
+                return (_pSchemas[0] instanceof TxValidator) ?
+                    _pSchemas[0].schema : _pSchemas[0];
+            }
+            return DefaultVOSchema;
+        };
 
-        const _outPipe = pipesOrVOsOrSchemas[pipesOrVOsOrSchemas.length - 1];
-
-        const _outSchema = _outPipe.schema[1] ||
-            (_outPipe.schema.schemas ?
-                _outPipe.schema.schemas[_outPipe.schema.schemas.length - 1] : void (0)) ||
-            _inSchema ||
-            DefaultVOSchema;
+        const _inSchema = _getInSchema();
+        const _outSchema = _pSchemas.length > 1 ? _pSchemas[_pSchemas.length - 1] : _inSchema;
 
         // stores config & state
         _pipes.set(this,
@@ -87,6 +103,13 @@ export class TxPipe {
         _pipes.get(this).ivl = 0;
         _pipes.get(this).ivlVal = 0;
         _pipes.get(this).listeners = [PipeListener.create(this)];
+
+        // define exec in constructor to ensure method visibility
+        Object.defineProperty(this, "exec", {
+            value: (data) => _pipes.get(this).exec(data),
+            enumerable: true,
+            configurable: false,
+        });
     }
 
     /**
@@ -95,7 +118,7 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txPipe(...pipesOrSchemas) {
-        return new TxPipe([].concat(_pipes.get(this).out, pipesOrSchemas));
+        return new TxPipe([].concat(_pipes.get(this).out, ...pipesOrSchemas));
     }
 
     get schema() {
@@ -118,7 +141,7 @@ export class TxPipe {
             callbacks = callbacks[0];
         }
 
-        callbacks = fillCallback(callbacks || []);
+        callbacks = fill(callbacks || []);
 
         // creates observer and stores it to links map for `txPipe`
         const _sub = this.subscribe({
@@ -179,10 +202,8 @@ export class TxPipe {
      * @param schemasOrPipes
      * @returns {*}
      */
-    txSplit(...schemasOrPipes) {
-        return (
-            Array.isArray(schemasOrPipes[0]) ? schemasOrPipes[0] : schemasOrPipes
-        ).map((o) => this.txPipe(o));
+    txSplit(schemasOrPipes) {
+        return schemasOrPipes.map((_) => this.txPipe(_));
     }
 
     /**
@@ -191,15 +212,23 @@ export class TxPipe {
      * @returns {generator}
      */
     txYield(data) {
-        const _ = new Function("$scope", "$cb",
+        let _fill = _pipes.get(this).pOS.map((_) => _.exec || ((_) => _));
+        // let _fill = TxPipe.getExecs(_pipes.get(this).pOS);
+
+        if (!_fill.length) {
+            _fill[0] = (d) => d;
+        }
+
+        const _f = new Function("$scope", "$cb",
             [
-                "return (function* (data) {",
-                Object.keys(_pipes.get(this).callbacks || [(d) => d])
+                "return (function* (data) { ",
+                Object.keys(_fill)
                     .map((_) => `yield data=($cb[${_}].bind($scope))(data)`)
                     .join("; "),
                 "}).bind($scope);",
             ].join(" "));
-        return _(this, _pipes.get(this).callbacks)(data);
+
+        return _f(this, _fill)(data);
     }
 
     /**
@@ -237,15 +266,8 @@ export class TxPipe {
     }
 
     /**
-     * Directly executes callback without effecting `txPipe` observable
-     * @param data
-     */
-    exec(data) {
-        return _pipes.get(this).exec(data);
-    }
-
-    /**
      * Creates clone of current `txPipe` segment
+     * todo: make this safe
      * @returns {TxPipe}
      */
     txClone() {
@@ -254,6 +276,7 @@ export class TxPipe {
             constructor() {
                 super();
                 _pipes.set(this, $ref);
+                _pipes.get(this).listeners = [].concat($ref.listeners);
             }
         };
         return new _cz();
@@ -349,7 +372,7 @@ export class TxPipe {
             if (this.txErrors !== null) {
                 reject(this.txErrors);
             }
-            resolve(this);
+            resolve(this.txTap());
         });
     }
 
@@ -387,7 +410,7 @@ export class PipeListener {
             // caches operation for later execution. ordering is FIFO
             _cache.get(this.target).splice(0, 0, () => _pipes.get(this.target).cb(data));
             // cancels current execution
-            return;
+            return void 0;
         }
 
         // tests for interval (ivl)
@@ -395,7 +418,7 @@ export class PipeListener {
             // tics the counter and tests if count is fulfilled
             if ((++_pipes.get(this.target).ivlVal) !== _pipes.get(this.target).ivl) {
                 // count is not fulfilled. stops the execution
-                return;
+                return void 0;
             } else {
                 // resets the count and lets the operation proceed
                 _pipes.get(this.target).ivlVal = 0;
@@ -421,6 +444,8 @@ export class PipeListener {
             }
 
             _out(_t);
+        } else {
+            _observers.get(_pipes.get(this.target).out).error("value was malformed");
         }
     }
 
@@ -437,7 +462,7 @@ export class PipeListener {
      *
      */
     complete() {
-        _target.txClose();
+        _pipes.get(this.target).txClose();
     }
 
     /**

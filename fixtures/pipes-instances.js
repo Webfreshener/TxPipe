@@ -1,6 +1,4 @@
 import {TxPipe} from "../src";
-import {TxValidator} from "../src";
-import {default as DefaultSchema} from "../src/schemas/default-vo.schema";
 const _pipes = new WeakMap();
 export class TestUser {
     constructor(...pipesOrSchemas) {
@@ -22,7 +20,7 @@ export class TestSubClass extends TxPipe {
             // new TxPipe(
             //     [].concat(pipesOrSchemas, {exec: (d) => d})
             // ),
-            pipesOrSchemas,
+            ...pipesOrSchemas,
         );
     }
 }
