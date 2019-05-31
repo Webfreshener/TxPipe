@@ -410,7 +410,7 @@ export class PipeListener {
             // caches operation for later execution. ordering is FIFO
             _cache.get(this.target).splice(0, 0, () => _pipes.get(this.target).cb(data));
             // cancels current execution
-            return;
+            return void 0;
         }
 
         // tests for interval (ivl)
@@ -462,7 +462,7 @@ export class PipeListener {
      *
      */
     complete() {
-        _target.txClose();
+        _pipes.get(this.target).txClose();
     }
 
     /**

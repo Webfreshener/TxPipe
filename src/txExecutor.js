@@ -39,8 +39,9 @@ export class TxExecutor {
         let _value = data;
         while (!_done) {
             let {done, value} = _it.next(_value);
-            _done = done;
-            _value = value;
+            if (!(_done = done)) {
+                _value = value;
+            }
         }
         // todo: review for refactor/removal
         // } catch (e) {
@@ -50,8 +51,6 @@ export class TxExecutor {
         return _value;
     };
 }
-
-
 
 /**
  * Promise-safe callback iterator for pipe transactions

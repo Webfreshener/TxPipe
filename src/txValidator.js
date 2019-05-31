@@ -70,7 +70,6 @@ export class TxValidator {
         Object.defineProperty(this, "schema", {
             get: () => schemaOrConfig || {schemas:[DefaultVO]},
             enumerable: true,
-            configurable: false,
         });
 
         const _baseSchema = schemaOrConfig.schemas[schemaOrConfig.schemas.length - 1] || DefaultVO;
@@ -120,8 +119,14 @@ export class TxValidator {
     /**
      * Performs validation of value without effecting state
      * @param value
+     * @deprecated
      */
     validate(value) {
+        const $id = AjvWrapper.getSchemaID(this.schema.schemas[0] || this.schema);
+        return _validators.get(this).exec($id, value);
+    }
+
+    test(value) {
         const $id = AjvWrapper.getSchemaID(this.schema.schemas[0] || this.schema);
         return _validators.get(this).exec($id, value);
     }
@@ -135,7 +140,7 @@ export class TxValidator {
             return;
         }
 
-        if (this.validate(data)) {
+        if (this.test(data)) {
             _models.set(this, data);
             _observers.get(this).next(this);
         } else {
