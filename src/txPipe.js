@@ -25,7 +25,7 @@ SOFTWARE.
 ############################################################################ */
 import {_observers, TxValidator} from "./txValidator";
 import {fill, mapArgs} from "./txUtils";
-import {TxExecutor} from "./TxExecutor";
+import {TxExecutor} from "./txExecutor";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema";
 import {TxProperties} from "./txProperties";
 
