@@ -64,8 +64,24 @@ export const castToExec = (obj) => {
     }
 
     // -- if TxPipe, our work here is already done
-    if (obj instanceof TxPipe || obj instanceof TxValidator) {
+    if (obj instanceof TxPipe) {
         return obj;
+    }
+
+    if ((typeof obj["validate"]) === "function") {
+        // return Object.assign({}, DefaultValidatorTx, obj);
+        return Object.defineProperties({},{
+            exec: {
+                value: (d) => obj["validate"](d),
+                enumerable: true,
+                configurable: false,
+            },
+            schema: {
+                get: () => obj.schema,
+                enumerable: true,
+                configurable: false,
+            }
+        });
     }
 
     // -- if is pipe config item, we normalize for intake
