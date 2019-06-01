@@ -149,11 +149,9 @@ export class TxValidator {
         const _t = this.test(data);
 
         if (_t === true) {
-            console.log("test is true");
             _models.set(this, data);
             _observers.get(this).next(this);
         } else {
-            console.log(`test is ${_t}`);
             if (_t === false) {
                 _observers.get(this).error(this.errors);
             } else {
