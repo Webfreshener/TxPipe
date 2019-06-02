@@ -1,17 +1,12 @@
 import {TxValidator} from "./txValidator";
 import {TxPipe} from "./txPipe";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
-import {default as JSONSchemaDraft04} from "../fixtures/json-schema-draft-04";
 import {default as data} from "../fixtures/pipes-test.data";
 import {TestSubClass} from "../fixtures/pipes-instances";
 
-const _schemaLess = Object.assign({}, basicCollection);
-delete _schemaLess.$schema;
-
 const _pipesOrSchemas = [{
     schema: {
-        meta: [JSONSchemaDraft04],
-        schemas: [_schemaLess],
+        schemas: [basicCollection],
     },
     exec: (d) => {
         return Array.isArray(d) ? d.filter((is) => is.active) : false
@@ -31,7 +26,7 @@ describe("TxPipes tests", () => {
             );
         });
 
-        it("should exec and not modify contents", () => {
+        it("should call exec and not modify contents", () => {
             const _p = new TxPipe(..._pipesOrSchemas);
             expect(_p.exec(data).length).toEqual(3);
             expect(Object.keys(_p.txTap()).length).toEqual(0);
@@ -146,12 +141,12 @@ describe("TxPipes tests", () => {
 
         it("should exec multiple pipes inline", () => {
             const _p1 = new TxPipe({
-                schema: _schemaLess,
+                schema: basicCollection,
                 exec: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
             });
 
             const _p2 = new TxPipe({
-                schema: _schemaLess,
+                schema: basicCollection,
                 exec: (d) => d.map((m) => Object.assign(m, {age: 99})),
             });
 
@@ -160,7 +155,7 @@ describe("TxPipes tests", () => {
             _inline.txWrite(data);
 
             setTimeout(() => {
-                expect(JSON.stringify(_inline.txSchema[0].schemas[0].schema)).toEqual(JSON.stringify(_schemaLess));
+                expect(JSON.stringify(_inline.txSchema[0].schemas[0].schema)).toEqual(JSON.stringify(basicCollection));
                 expect(_inline.txTap().length).toEqual(data.length);
                 expect(_inline.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
                 expect(_inline.txTap()[0].age).toEqual(99);
@@ -320,8 +315,8 @@ describe("TxPipes tests", () => {
                     _cb();
                 },
                 error: (e) => {
-                    console.log(e);
                     _sub.unsubscribe();
+                    throw e;
                 },
             });
 

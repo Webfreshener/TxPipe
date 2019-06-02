@@ -59,7 +59,6 @@ export class TxPipe {
     constructor(...pipesOrVOsOrSchemas) {
         _pipes.set(this, {});
         _cache.set(this, []);
-
         pipesOrVOsOrSchemas = mapArgs(...pipesOrVOsOrSchemas);
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
         const _callbacks = fill(TxPipe.getExecs(...pipesOrVOsOrSchemas));
@@ -106,7 +105,9 @@ export class TxPipe {
 
         // define exec in constructor to ensure method visibility
         Object.defineProperty(this, "exec", {
-            value: (data) => _pipes.get(this).exec(data),
+            value: (data) => {
+                return _pipes.get(this).exec(data)
+            },
             enumerable: true,
             configurable: false,
         });

@@ -63,24 +63,42 @@ export const castToExec = (obj) => {
         return obj.map((o) => castToExec(o));
     }
 
-    // -- if TxPipe, our work here is already done
-    if (obj instanceof TxPipe || obj instanceof TxValidator) {
-        return obj;
-    }
-
     // -- if is pipe config item, we normalize for intake
     if ((typeof obj.exec) === "function") {
         return Object.assign({}, DefaultPipeTx, obj);
     }
 
+    // -- if TxPipe, our work here is already done
+    if (obj instanceof TxPipe) {
+        return obj;
+    }
+
     // -- if is straight up schema, we create validator instance
     if (TxValidator.validateSchemas(obj)) {
-        return new TxValidator(obj);
+        return new TxValidator(
+            (Array.isArray(obj) && !obj.length) ? {schemas: [DefaultVOSchema]} : obj
+        );
+    }
+
+    if ((typeof obj["validate"]) === "function") {
+        // return Object.assign({}, DefaultValidatorTx, obj);
+        return Object.defineProperties({},{
+            exec: {
+                value: (d) => obj["validate"](d),
+                enumerable: true,
+                configurable: false,
+            },
+            schema: {
+                get: () => obj.schema,
+                enumerable: true,
+                configurable: false,
+            }
+        });
     }
 
     // attempts to map to Tx-able object
     return Object.assign({}, DefaultPipeTx, obj);
-};
+}
 
 /**
  *
@@ -101,6 +119,7 @@ export const wrapCallback = (cb) => ((dataOrPromise) => {
         // delegates Promise
         return handleAsync(dataOrPromise);
     }
+
     return cb(dataOrPromise)
 });
 
