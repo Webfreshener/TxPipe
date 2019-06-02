@@ -43,11 +43,6 @@ export class TxExecutor {
                 _value = value;
             }
         }
-        // todo: review for refactor/removal
-        // } catch (e) {
-        //     _observers.get(_pipes.get(this).out).error(e);
-        //     return false;
-        // }
         return _value;
     };
 }
