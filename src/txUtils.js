@@ -26,6 +26,7 @@ SOFTWARE.
 import {TxPipe} from "./txPipe";
 import {TxValidator} from "./txValidator";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema"
+
 const DefaultPipeTx = {
     schema: DefaultVOSchema,
     exec: (d) => d,
@@ -44,7 +45,7 @@ export const fill = (arr, value = ((d) => d), min = 2) => {
         return arr;
     }
     return (arr = arr || []).concat(
-        Array( min - arr.length).fill(value, 0)
+        Array(min - arr.length).fill(value, 0)
     );
 };
 
@@ -82,7 +83,7 @@ export const castToExec = (obj) => {
 
     if ((typeof obj["validate"]) === "function") {
         // return Object.assign({}, DefaultValidatorTx, obj);
-        return Object.defineProperties({},{
+        return Object.defineProperties({}, {
             exec: {
                 value: (d) => obj["validate"](d),
                 enumerable: true,
@@ -107,7 +108,12 @@ export const castToExec = (obj) => {
  */
 export const handleAsync = (cb) => (async (d) => await new Promise(
     (resolve) => d.then((_) => resolve(cb(_)))
-));
+        .catch((e) => {
+            return JSON.stringify(e);
+        })
+).catch((e) => {
+    return JSON.stringify(e);
+}));
 
 /**
  *
