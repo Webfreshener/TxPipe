@@ -6,6 +6,13 @@ export default {
             $ref: "#/definitions/Schema",
         },
         {
+            allOf: [{
+                $ref: "#/definitions/Schemas",
+            }, {
+                max: 2,
+            }],
+        },
+        {
             type: "object",
             required: ["schemas"],
             additionalProperties: false,
@@ -43,7 +50,7 @@ export default {
         Schemas: {
             type: "array",
             items: {
-                $ref: "http://json-schema.org/draft-07/schema#",
+                $ref: "#/definitions/Schema",
             },
             min: 2,
         },
