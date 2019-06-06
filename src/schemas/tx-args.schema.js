@@ -10,10 +10,18 @@ export default {
             required: ["schemas"],
             properties: {
                 schemas: {
-                    $ref: "#/definitions/Schema",
+                    allOf: [{
+                        $ref: "#/definitions/Schema",
+                    }, {
+                        type: ["array"],
+                    }],
                 },
                 meta: {
-                    $ref: "#/definitions/Schema",
+                    allOf: [{
+                        $ref: "#/definitions/Schema",
+                    }, {
+                        type: ["array"],
+                    }],
                 },
                 use: {
                     type: "string",
