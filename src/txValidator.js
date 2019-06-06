@@ -58,7 +58,7 @@ export class TxValidator {
             throw "Schema or Schema Config required";
         }
         if (!TxValidator.validateSchemas(schemaOrConfig)) {
-            throw `Unable to process schema: ${JSON.stringify(argsValidator.errors)}`;
+            throw `Unable to process schema: ${JSON.stringify(argsValidator.$ajv.errors)}`;
         }
 
         if (!schemaOrConfig.hasOwnProperty("schemas")) {
@@ -139,13 +139,7 @@ export class TxValidator {
         if (this.isFrozen) {
             return;
         }
-        //// -- original:
-        // if (this.test(data)) {
-        //     _models.set(this, data);
-        //     _observers.get(this).next(this);
-        // } else {
-        //     _observers.get(this).error(this.errors);
-        // }
+
         const _t = this.test(data);
 
         if (_t === true) {
