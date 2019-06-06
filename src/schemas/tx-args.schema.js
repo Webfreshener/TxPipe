@@ -33,7 +33,12 @@ export default {
     ],
     definitions: {
         Schema: {
-            $ref: "http://json-schema.org/draft-07/schema#",
+            allOf: [{
+                $ref: "http://json-schema.org/draft-07/schema#",
+            }, {
+                type: "object",
+            }],
+
         },
         Schemas: {
             type: "array",
