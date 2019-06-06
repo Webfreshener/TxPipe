@@ -1,5 +1,6 @@
 import {TxValidator} from "./txValidator";
 import {TxPipe} from "./txPipe";
+import {RxVO} from "rxvo";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as data} from "../fixtures/pipes-test.data";
 import {TestSubClass} from "../fixtures/pipes-instances";
@@ -383,6 +384,11 @@ describe("TxPipes tests", () => {
             const _ = new TestSubClass(_unit);
             expect(_unit.txWrite(_data).txTap()).toEqual(_res);
             expect(_.txWrite(_data).txTap()).toEqual(_res);
+        });
+
+        it("should work with RxVO", () => {
+            const _vo = new RxVO({schemas: [basicCollection]});
+            const _p = new TxPipe(_vo);
         });
     });
 

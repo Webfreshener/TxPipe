@@ -58,7 +58,7 @@ export class TxValidator {
             throw "Schema or Schema Config required";
         }
         if (!TxValidator.validateSchemas(schemaOrConfig)) {
-            throw "Unable to process schema"
+            throw `Unable to process schema: ${JSON.stringify(argsValidator.errors)}`;
         }
 
         if (!schemaOrConfig.hasOwnProperty("schemas")) {
