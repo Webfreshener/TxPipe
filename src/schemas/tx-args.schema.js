@@ -8,6 +8,7 @@ export default {
         {
             type: "object",
             required: ["schemas"],
+            additionalProperties: false,
             properties: {
                 schemas: {
                     allOf: [{
