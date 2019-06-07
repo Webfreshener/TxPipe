@@ -1,6 +1,18 @@
-import {fill} from "./txUtils";
+import {fill, castToExec} from "./txUtils";
 
 describe("TxUtils Tests", () => {
+    describe("castToExec tests", () => {
+        describe("function handling", () => {
+            const _func = () => ({res: true});
+            it("should accept functions as pipes", () => {
+                expect((typeof castToExec(_func).exec)).toEqual("function");
+            });
+            it("should execute functions as pipes", () => {
+                expect(castToExec(_func).exec().res).toBe(true);
+            });
+        });
+    });
+
     describe("fill tests", () => {
         it("should fill array with a given value", () => {
             const _ = fill([], () => ({ok: true}));

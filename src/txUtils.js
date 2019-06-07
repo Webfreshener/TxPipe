@@ -65,6 +65,11 @@ export const castToExec = (obj) => {
     }
 
     // -- if is pipe config item, we normalize for intake
+    if ((typeof obj) === "function") {
+        return Object.assign({}, DefaultPipeTx, {exec: obj});
+    }
+
+    // -- if is pipe config item, we normalize for intake
     if ((typeof obj.exec) === "function") {
         return Object.assign({}, DefaultPipeTx, obj);
     }
