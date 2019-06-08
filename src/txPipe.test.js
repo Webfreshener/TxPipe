@@ -42,16 +42,63 @@ describe("TxPipes tests", () => {
             }, done).catch(done);
         });
 
-        it("should provide errors", (done) => {
-            const _p = new TxPipe(_pipesOrSchemas);
+
+        it("should stop if a pipe returns false", (done) => {
+            const _p = new TxPipe(
+                _pipesOrSchemas,
+                {
+                    exec: () => false,
+                }
+            );
             const _sub = _p.subscribe({
                 next: () => {
                     _sub.unsubscribe();
-                    done("pipe should have errored");
+                    done("pipe should not have sent next notification");
                 },
                 error: (e) => {
                     _sub.unsubscribe();
+                    done("pipe should not have sent error notification");
+                },
+            });
+
+            _p.txWrite(data[0]);
+            setTimeout(done, 200);
+        });
+
+        it("should provide errors", (done) => {
+            const _p = new TxPipe(() => "an error message");
+            const _sub = _p.subscribe({
+                next: () => {
+                    // _sub.unsubscribe();
+                    done("pipe should have errored");
+                },
+                error: (e) => {
+                    // _sub.unsubscribe();
                     expect(e !== null).toBe(true);
+                    done();
+                },
+            });
+
+            _p.txWrite(data[0]);
+        });
+
+
+        it("should send error if a pipe returns string", (done) => {
+            const _eMsg = "an important error message for you";
+            const _p = new TxPipe(
+                _pipesOrSchemas,
+                {
+                    exec: () => _eMsg,
+                }
+            );
+            const _sub = _p.subscribe({
+                next: () => {
+                    _sub.unsubscribe();
+                    done("pipe should not have sent next notification");
+                },
+                error: (e) => {
+                    _sub.unsubscribe();
+                    expect(e).toEqual(_eMsg);
                     done();
                 },
             });

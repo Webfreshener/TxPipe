@@ -446,7 +446,11 @@ export class PipeListener {
 
             _out(_t);
         } else {
-            _observers.get(_pipes.get(this.target).out).error("value was malformed");
+            // string values are treated as error messages
+            if ((typeof _t) === "string") {
+                _observers.get(_pipes.get(this.target).out).error(_t);
+            }
+            // boolean & numeric values get safely ignored
         }
     }
 
