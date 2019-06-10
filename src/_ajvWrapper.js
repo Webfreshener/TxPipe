@@ -140,7 +140,7 @@ export class AjvWrapper {
         try {
             _res = this.$ajv.validate(path, value);
         } catch (e) {
-            return false; //JSON.stringify(e);
+            return JSON.stringify(e);
         }
         return _res;
     }

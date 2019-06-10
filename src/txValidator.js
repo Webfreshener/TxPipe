@@ -142,6 +142,7 @@ export class TxValidator {
         const _t = this.validate(data);
 
         if (_t === true) {
+            console.log("initial validation passed, setting our _models ... ");
             _models.set(this, data);
             _observers.get(this).next(this);
         } else {
