@@ -139,7 +139,7 @@ export class TxValidator {
             return;
         }
 
-        const _t = this.test(data);
+        const _t = this.validate(data);
 
         if (_t === true) {
             _models.set(this, data);
