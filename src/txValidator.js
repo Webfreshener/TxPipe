@@ -119,7 +119,6 @@ export class TxValidator {
     /**
      * Performs validation of value without effecting state
      * @param value
-     * @deprecated
      */
     validate(value) {
         const $id = AjvWrapper.getSchemaID(this.schema.schemas[0] || this.schema);
