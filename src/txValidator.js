@@ -139,18 +139,22 @@ export class TxValidator {
             return;
         }
 
-        const _t = this.validate(data);
+        try {
+            const _t = this.validate(data);
 
-        if (_t === true) {
-            console.log("initial validation passed, setting our _models ... ");
-            _models.set(this, data);
-            _observers.get(this).next(this);
-        } else {
-            if (_t === false) {
-                _observers.get(this).error(this.errors);
+            if (_t === true) {
+                console.log("initial validation passed, setting our _models ... ");
+                _models.set(this, data);
+                _observers.get(this).next(this);
             } else {
-                _observers.get(this).error(_t);
+                if (_t === false) {
+                    _observers.get(this).error(this.errors);
+                } else {
+                    _observers.get(this).error(_t);
+                }
             }
+        } catch (e) {
+            _observers.get(this).error(e);
         }
     }
 
