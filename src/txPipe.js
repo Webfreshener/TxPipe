@@ -262,7 +262,11 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txWrite(data) {
-        _pipes.get(this).vo.model = data;
+        try {
+            _pipes.get(this).vo.model = data;
+        } catch (e) {
+            _out.txWrite(JSON.stringify(e));
+        }
         return this;
     }
 
