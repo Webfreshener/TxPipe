@@ -69,12 +69,12 @@ describe("TxPipes tests", () => {
             const _p = new TxPipe(() => "an error message");
             const _sub = _p.subscribe({
                 next: () => {
-                    // _sub.unsubscribe();
+                    _sub.unsubscribe();
                     done("pipe should have errored");
                 },
                 error: (e) => {
-                    // _sub.unsubscribe();
-                    expect(e.error !== null).toBe(true);
+                    _sub.unsubscribe();
+                    expect(e.error !== void 0).toBe(true);
                     done();
                 },
                 complete: () => {
@@ -101,7 +101,7 @@ describe("TxPipes tests", () => {
                 },
                 error: (e) => {
                     _sub.unsubscribe();
-                    expect(e).toEqual(_eMsg);
+                    expect(e.error).toEqual(_eMsg);
                     done();
                 },
             });

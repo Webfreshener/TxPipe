@@ -25,7 +25,6 @@ SOFTWARE.
 ############################################################################ */
 import {AjvWrapper} from "./_ajvWrapper";
 import {TxBehaviorSubject} from "./txBehaviorSubject";
-// import {BehaviorSubject} from "rxjs/Rx";
 import {default as TxArgs} from "./schemas/tx-args.schema";
 import {default as DefaultVO} from "./schemas/default-vo.schema";
 const _models = new WeakMap();
@@ -149,9 +148,15 @@ export class TxValidator {
             _observers.get(this).next(data);
         } else {
             if (_t === false) {
-                _observers.get(this).error(this.errors);
+                _observers.get(this).error({
+                    error: this.errors,
+                    data: data,
+                });
             } else {
-                _observers.get(this).error(_t);
+                _observers.get(this).error({
+                    error: e,
+                    data: data,
+                });
             }
         }
     }
