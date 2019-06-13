@@ -1,6 +1,6 @@
 import {TxIterator} from "./txIterator";
 
-describe("TxIterator Tests", () => {
+describe.skip("TxIterator Tests", () => {
     it("should loop", () => {
         const _ = (
             new TxIterator((_) => _*2)

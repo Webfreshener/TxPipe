@@ -31,6 +31,7 @@ import {TxProperties} from "./txProperties";
 
 const _pipes = new WeakMap();
 const _cache = new WeakMap();
+const _listeners = new WeakMap();
 
 /**
  * TxPipe Class
@@ -70,11 +71,16 @@ export class TxPipe {
                 exec: (d) => d,
             };
 
-        const _pSchemas = [].concat([].concat(...pipesOrVOsOrSchemas).filter((_p) => {
-            return (_p instanceof TxValidator) || (_p.hasOwnProperty("schema") && (
-                Array.isArray(_p.schema) || TxValidator.validateSchemas(_p.schema)
-            ));
-        }));
+        const _pSchemas = [...pipesOrVOsOrSchemas].filter((_p) => {
+            return (
+                // true if TxValidator
+                _p instanceof TxValidator) ||
+                (
+                    // true of has schema attribute and is a valid `json-schema`
+                    _p.hasOwnProperty("schema") &&
+                    TxValidator.validateSchemas(_p.schema)
+                );
+        });
 
         const _getInSchema = () => {
             if (_pSchemas.length) {
@@ -90,6 +96,7 @@ export class TxPipe {
         // stores config & state
         _pipes.set(this,
             TxProperties.init(this, {
+                // vo is always a TValdiator
                 vo: (_inPipe instanceof TxValidator) ? _inPipe : new TxValidator(_inSchema),
                 callbacks: _callbacks,
                 inSchema: _inSchema,
@@ -101,7 +108,7 @@ export class TxPipe {
 
         _pipes.get(this).ivl = 0;
         _pipes.get(this).ivlVal = 0;
-        _pipes.get(this).listeners = [PipeListener.create(this)];
+        _pipes.get(this).listeners = [new PipeListener(this)];
 
         // define exec in constructor to ensure method visibility
         Object.defineProperty(this, "exec", {
@@ -214,7 +221,6 @@ export class TxPipe {
      */
     txYield(data) {
         let _fill = _pipes.get(this).pOS.map((_) => _.exec || ((_) => _));
-        // let _fill = TxPipe.getExecs(_pipes.get(this).pOS);
 
         if (!_fill.length) {
             _fill[0] = (d) => d;
@@ -262,17 +268,12 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txWrite(data) {
-        try {
-            _pipes.get(this).vo.model = data;
-        } catch (e) {
-            _out.txWrite(JSON.stringify(e));
-        }
+        _pipes.get(this).vo.model = data;
         return this;
     }
 
     /**
      * Creates clone of current `txPipe` segment
-     * todo: make this safe
      * @returns {TxPipe}
      */
     txClone() {
@@ -403,44 +404,72 @@ export class TxPipe {
 export class PipeListener {
     /**
      *
+     * @param target
+     */
+    constructor(target) {
+        _pipes.set(this, target);
+        _pipes.get(target).vo.subscribe({
+            next: (d) => this.next(d),
+            error: (e) => this.error(e),
+            complete: () => this.complete(),
+        });
+    }
+
+    /**
+     *
+     * @param e
+     */
+    error(e) {
+        // sends error notification through out validator's observable
+        _observers.get(_pipes.get(_pipes.get(this)).out).error(e);
+    }
+
+    /**
+     *
+     */
+    complete() {
+        _pipes.get(_pipes.get(this)).txClose();
+    }
+
+    /**
+     *
      * @param data
      * @returns {Promise<void | never>}
      */
     next(data) {
         // enforces JSON formatting if feature is present
         data = data.toJSON ? data.toJSON() : data;
-
+        const _target = _pipes.get(this);
         // tests for presence of rate-limit timeout
-        if (_pipes.get(this.target).tO) {
+        if (_pipes.get(_target).tO) {
             // caches operation for later execution. ordering is FIFO
-            _cache.get(this.target).splice(0, 0, () => _pipes.get(this.target).cb(data));
+            _cache.get(_target).splice(0, 0, () => _pipes.get(_target).cb(data));
             // cancels current execution
             return void 0;
         }
 
         // tests for interval (ivl)
-        if (_pipes.get(this.target).ivl !== 0) {
+        if (_pipes.get(_target).ivl !== 0) {
             // tics the counter and tests if count is fulfilled
-            if ((++_pipes.get(this.target).ivlVal) !== _pipes.get(this.target).ivl) {
+            if ((++_pipes.get(_target).ivlVal) !== _pipes.get(_target).ivl) {
                 // count is not fulfilled. stops the execution
                 return void 0;
             } else {
                 // resets the count and lets the operation proceed
-                _pipes.get(this.target).ivlVal = 0;
+                _pipes.get(_target).ivlVal = 0;
             }
         }
 
         // capture output of callback
-        const _t = _pipes.get(this.target).exec(data);
-
+        const _t = _pipes.get(_pipes.get(this)).exec(data);
         // tests if object and if object is writable
-        if ((typeof _t) === "object" && this.target.txWritable) {
+        if (((typeof _t) === "object") && _target.txWritable) {
             const _out = (_) => {
                 // else we set the model for validation
                 try {
-                    _pipes.get(this.target).out.model = _.toJSON ? _.toJSON() : _;
+                    _pipes.get(_pipes.get(this)).out.model = _.toJSON ? _.toJSON() : _;
                 } catch (e) {
-                    _observers.get(_pipes.get(this.target).out).error(e);
+                    _observers.get(_pipes.get(_pipes.get(this)).out).error(e);
                 }
             };
 
@@ -452,47 +481,13 @@ export class PipeListener {
         } else {
             // string values are treated as error messages
             if ((typeof _t) === "string") {
-                _observers.get(_pipes.get(this.target).out).error(_t);
+                _observers.get(_pipes.get(_pipes.get(this)).out).error(_t);
             }
             // boolean & numeric values get safely ignored
         }
     }
 
-    /**
-     *
-     * @param e
-     */
-    error(e) {
-        // sends error notification through out validator's observable
-        _observers.get(_pipes.get(this.target).out).error(e);
-    }
-
-    /**
-     *
-     */
-    complete() {
-        _pipes.get(this.target).txClose();
-    }
-
-    /**
-     *
-     * @param target
-     */
-    constructor(target) {
-        Object.defineProperty(this, "target", {
-            value: target,
-            enumerable: false,
-            configurable: false,
-        });
-        _pipes.get(target).vo.subscribe(this);
-    }
-
-    /**
-     *
-     * @param target
-     * @returns {PipeListener}
-     */
-    static create(target) {
-        return new PipeListener(target);
+    subscribe(handler) {
+        _observers.get(_pipes.get(_pipes.get(this)).out).subscribe(handler);
     }
 }

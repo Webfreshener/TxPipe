@@ -24,7 +24,8 @@ SOFTWARE.
 
 ############################################################################ */
 import {AjvWrapper} from "./_ajvWrapper";
-import {BehaviorSubject} from "rxjs/Rx";
+import {TxBehaviorSubject} from "./txBehaviorSubject";
+// import {BehaviorSubject} from "rxjs/Rx";
 import {default as TxArgs} from "./schemas/tx-args.schema";
 import {default as DefaultVO} from "./schemas/default-vo.schema";
 const _models = new WeakMap();
@@ -77,7 +78,9 @@ export class TxValidator {
         // this is just a quick guess at our default data type (object|array)
         _models.set(this, _baseSchema.hasOwnProperty("items") ? [] : {});
 
-        _observers.set(this, new BehaviorSubject(null).skip(1));
+        // _observers.set(this, new BehaviorSubject(null).skip(1));
+        _observers.set(this, new TxBehaviorSubject());
+
         _validators.set(this, new AjvWrapper(schemaOrConfig, options || {}));
     }
 
@@ -139,21 +142,17 @@ export class TxValidator {
             return;
         }
 
-        try {
-            const _t = this.validate(data);
+        const _t = this.validate(data);
 
-            if (_t === true) {
-                _models.set(this, data);
-                _observers.get(this).next(this);
+        if (_t === true) {
+            _models.set(this, data);
+            _observers.get(this).next(data);
+        } else {
+            if (_t === false) {
+                _observers.get(this).error(this.errors);
             } else {
-                if (_t === false) {
-                    _observers.get(this).error(this.errors);
-                } else {
-                    _observers.get(this).error(_t);
-                }
+                _observers.get(this).error(_t);
             }
-        } catch (e) {
-            _observers.get(this).error(e);
         }
     }
 

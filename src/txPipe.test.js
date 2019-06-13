@@ -74,9 +74,12 @@ describe("TxPipes tests", () => {
                 },
                 error: (e) => {
                     // _sub.unsubscribe();
-                    expect(e !== null).toBe(true);
+                    expect(e.error !== null).toBe(true);
                     done();
                 },
+                complete: () => {
+                    done("should not have completed");
+                }
             });
 
             _p.txWrite(data[0]);
@@ -118,7 +121,7 @@ describe("TxPipes tests", () => {
             const _sub = _p.subscribe({
                 next: (d) => {
                     _sub.unsubscribe();
-                    expect(`${d}`).toEqual(JSON.stringify(_p.txTap()));
+                    expect(`${JSON.stringify(d)}`).toEqual(JSON.stringify(_p.txTap()));
                     done();
                 },
                 error: (e) => {
@@ -133,7 +136,7 @@ describe("TxPipes tests", () => {
             const _sub = _p.subscribe({
                 next: (d) => {
                     _sub.unsubscribe();
-                    expect(d.model.length).toEqual(3);
+                    expect(d.length).toEqual(3);
                     expect(_p.txTap().length).toEqual(3);
                     done();
                 },
