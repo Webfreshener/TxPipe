@@ -421,10 +421,7 @@ export class PipeListener {
      */
     error(e) {
         // sends error notification through out validator's observable
-        _observers.get(_pipes.get(_pipes.get(this)).out).error({
-            error: e,
-            data: data,
-        });
+        _observers.get(_pipes.get(_pipes.get(this)).out).error(e);
     }
 
     /**
