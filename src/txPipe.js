@@ -72,11 +72,10 @@ export class TxPipe {
             };
 
         const _pSchemas = [...pipesOrVOsOrSchemas].filter((_p) => {
-            return (
-                // true if TxValidator
+            return (// returns true if TxValidator
                 _p instanceof TxValidator) ||
                 (
-                    // true of has schema attribute and is a valid `json-schema`
+                    // returns true if has `schema` attribute and is a valid `json-schema`
                     _p.hasOwnProperty("schema") &&
                     TxValidator.validateSchemas(_p.schema)
                 );
@@ -407,12 +406,37 @@ export class PipeListener {
      * @param target
      */
     constructor(target) {
-        _pipes.set(this, target);
-        _pipes.get(target).vo.subscribe({
-            next: (d) => this.next(d),
-            error: (e) => this.error(e),
-            complete: () => this.complete(),
+        const _self = this;
+        _pipes.set(_self, target);
+        this.vo.subscribe({
+            next: (d) => _self.next(d),
+            error: (e) => _self.error(e),
+            complete: () => _self.complete(),
         });
+    }
+
+    /**
+     *
+     * @returns {TxPipe}
+     */
+    get target() {
+        return _pipes.get(this);
+    }
+
+    /**
+     *
+     * @returns {TxValidator}
+     */
+    get vo() {
+        return _pipes.get(this.target).vo;
+    }
+
+    /**
+     *
+     * @returns {TxValidator}
+     */
+    get out() {
+        return _pipes.get(this.target).out;
     }
 
     /**
@@ -421,14 +445,14 @@ export class PipeListener {
      */
     error(e) {
         // sends error notification through out validator's observable
-        _observers.get(_pipes.get(_pipes.get(this)).out).error(e);
+        _observers.get(this.out).error(e);
     }
 
     /**
-     *
+     * closes `pipe` on complete notification
      */
     complete() {
-        _pipes.get(_pipes.get(this)).txClose();
+        this.target.txClose();
     }
 
     /**
@@ -467,9 +491,9 @@ export class PipeListener {
             const _out = (_) => {
                 // else we set the model for validation
                 try {
-                    _pipes.get(_pipes.get(this)).out.model = _.toJSON ? _.toJSON() : _;
+                    this.out.model = _.toJSON ? _.toJSON() : _;
                 } catch (e) {
-                    _observers.get(_pipes.get(_pipes.get(this)).out).error({
+                    _observers.get(this.out).error({
                         error: e,
                         data: data,
                     });
@@ -484,7 +508,7 @@ export class PipeListener {
         } else {
             // string values are treated as error messages
             if ((typeof _t) === "string") {
-                _observers.get(_pipes.get(_pipes.get(this)).out).error({
+                _observers.get(this.out).error({
                     error: _t,
                     data: data,
                 });
@@ -494,6 +518,6 @@ export class PipeListener {
     }
 
     subscribe(handler) {
-        _observers.get(_pipes.get(_pipes.get(this)).out).subscribe(handler);
+        _observers.get(this.out).subscribe(handler);
     }
 }
