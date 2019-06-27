@@ -1,5 +1,7 @@
 import {fill, castToExec} from "./txUtils";
 import {default as InputSchema} from "../fixtures/input.schema";
+import {TxPipe} from "./txPipe";
+
 describe("TxUtils Tests", () => {
     describe("castToExec tests", () => {
         describe("function handling", () => {
@@ -11,35 +13,50 @@ describe("TxUtils Tests", () => {
                 expect(castToExec(_func).exec().res).toBe(true);
             });
         });
+        describe.skip("iterator handling", () => {
+            it("it should cast array to iterator", () => {
+                const _res = castToExec([() => "ok"]);
+                expect(_res instanceof TxPipe).toBe(true);
+                expect(JSON.stringify(_res.exec([1, 2, 3]))).toEqual("[\"ok\",\"ok\",\"ok\"]");
+            });
+            it("should exec", () => {
+                const _res = castToExec([() => "ok"]);
+                expect(JSON.stringify(new TxPipe(_res).exec([1, 2, 3]))).toEqual("[\"ok\",\"ok\",\"ok\"]");
+            });
+        });
         describe("schema handling", () => {
             it("should accept json-schema", () => {
-                expect(( castToExec({
-                    $id: "root#",
-                    type: "object",
-                    required: ["name"],
-                    properties: {
-                        name: {
-                            type: "string",
+                const _s = {
+                    "$id": "root#",
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {
+                        "name": {
+                            "type": "string"
                         }
-                    },
-                }).validate({foo: "bar"}))).toBe(false);
+                    }
+                };
+                const _res = castToExec(_s);
+                expect(_res.exec({foo: "bar"})).toBe(false);
             });
             it("should validate complex schemas", () => {
-                expect(( castToExec(InputSchema).validate({foo: "bar"}))).toBe(false);
-                expect(( castToExec(InputSchema).validate({on: {foo: "bar"}}))).toBe(false);
+                expect((castToExec(InputSchema).exec({foo: "bar"}))).toBe(false);
+                expect((castToExec(InputSchema).exec({on: {foo: "bar"}}))).toBe(false);
                 const _ = castToExec(InputSchema);
-                const _res = _.validate({
+                const _data = {
                     on: {
                         events: ["bar"],
                         emitter: {
-                            _eventsCount:0,
-                            _events:{},
+                            _eventsCount: 0,
+                            _events: {},
                         },
                     },
-                });
+                };
+                const _res = _.exec(_data);
 
                 expect(_.errors).toEqual(null);
-                expect(_res).toEqual(true);
+                expect(_res).toEqual(_data);
             })
         })
     });

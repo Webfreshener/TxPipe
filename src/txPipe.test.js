@@ -19,10 +19,10 @@ const _vo = {
 };
 
 describe("TxPipes tests", () => {
-    describe("TxtPipes API Tests", () => {
+    describe("TxPipes API Tests", () => {
         it("should provide a schema", () => {
-            const _p = new TxPipe(_pipesOrSchemas[0].schema);
-            expect(JSON.stringify(_p.txSchema[0])).toEqual(
+            const _p = (new TxPipe(..._pipesOrSchemas)).txSchemas;
+            expect(JSON.stringify(_p[0])).toEqual(
                 JSON.stringify(_pipesOrSchemas[0].schema)
             );
         });
@@ -35,7 +35,7 @@ describe("TxPipes tests", () => {
         });
 
         it("should work with Promises", (done) => {
-            const _p = new TxPipe(_pipesOrSchemas);
+            const _p = new TxPipe(..._pipesOrSchemas);
             _p.txPromise(data).then((res) => {
                 expect(res.length).toEqual(3);
                 done();
@@ -45,10 +45,12 @@ describe("TxPipes tests", () => {
 
         it("should stop if a pipe returns false", (done) => {
             const _p = new TxPipe(
-                _pipesOrSchemas,
-                {
-                    exec: () => false,
-                }
+                ...[
+                    ..._pipesOrSchemas,
+                    {
+                        exec: () => false,
+                    }
+                ]
             );
             const _sub = _p.subscribe({
                 next: () => {
@@ -57,7 +59,9 @@ describe("TxPipes tests", () => {
                 },
                 error: (e) => {
                     _sub.unsubscribe();
-                    done("pipe should not have sent error notification");
+                    expect(e.error[0].message).toEqual("should be array");
+                    expect(JSON.stringify(e.data)).toEqual(JSON.stringify(data[0]));
+                    done();
                 },
             });
 
@@ -108,13 +112,29 @@ describe("TxPipes tests", () => {
 
             _p.txWrite(data[0]);
         });
+
+        it("pipe should pipe", (done) => {
+            const _tx = new TxPipe();
+
+            _tx.subscribe({
+                next: (d) => {
+                    expect(d).toEqual(data);
+                    done();
+                },
+                error: (e) => {
+                    done(e);
+                }
+            });
+
+            _tx.txWrite(data);
+        });
     });
 
     describe("TxPipes Data Tests", () => {
         let _p;
 
         beforeEach(() => {
-            _p = new TxPipe(_pipesOrSchemas);
+            _p = new TxPipe(..._pipesOrSchemas);
         });
 
         it("should intake and output data", (done) => {
@@ -206,7 +226,7 @@ describe("TxPipes tests", () => {
             _inline.txWrite(data);
 
             setTimeout(() => {
-                expect(JSON.stringify(_inline.txSchema[0].schemas[0].schema)).toEqual(JSON.stringify(basicCollection));
+                expect(JSON.stringify(_inline.txSchemas[0].schemas[0].schema)).toEqual(JSON.stringify(basicCollection));
                 expect(_inline.txTap().length).toEqual(data.length);
                 expect(_inline.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
                 expect(_inline.txTap()[0].age).toEqual(99);
@@ -220,13 +240,13 @@ describe("TxPipes tests", () => {
         it("should be iterable with txYield", () => {
             const _pOS = [
                 {
-                    exec: () =>  "foo",
+                    exec: () => "foo",
                 },
                 new TxPipe({
                     exec: () => "bar",
                 }),
                 {
-                    exec: () =>  "baz",
+                    exec: () => "baz",
                 },
             ];
 
@@ -236,6 +256,57 @@ describe("TxPipes tests", () => {
             expect(_.next().value).toBe("bar");
             expect(_.next().value).toBe("baz");
             expect(_.next().done).toBe(true);
+        });
+
+        it.skip("should iterate with an iterable", (done) => {
+            const _cb = jest.fn();
+            const _tx = new TxPipe(
+                {
+                    // any json-schema creates a validator
+                    schema: {
+                        type: "object",
+                        properties: {
+                            name: {
+                                type: "string",
+                                restrict: "/^[\w]+$/",
+                            },
+                            age: {
+                                type: "number",
+                                min: 21,
+                                max: 130,
+                            },
+                            active: {
+                                type: "boolean",
+                            },
+                        },
+                    },
+                },
+                [{
+                    // any object with `loop` creates an iterator
+                    exec: (d) => {
+                        console.log(d.active === true);
+                        return d.active === true
+                    },
+                }],
+            );
+
+            _tx.subscribe({
+                next: (d) => {
+                    expect(_cb).toHaveBeenCalledTimes(1);
+                    expect(d.length).toEqual(1);
+                    done();
+                },
+                error: ((e) => {
+                    console.log(e);
+                    _cb();
+                }),
+            });
+
+            _tx.txWrite([
+                {name: "sam", age: 25, active: true},
+                {name: "fred", age: 20, active: true},
+                {name: "alice", age: 30, active: false},
+            ]);
         });
 
         it("should throttle notifications based on time interval", () => {
@@ -315,11 +386,14 @@ describe("TxPipes tests", () => {
             _p.txUnlink(_link);
 
             // this will add an item to _p but not to _link
-            _p.txWrite(_p.txTap().concat({
-                name: "Added Item",
-                active: true,
-                age: 100,
-            }));
+            _p.txWrite([
+                ..._p.txTap(),
+                {
+                    name: "Added Item",
+                    active: true,
+                    age: 100,
+                }
+            ]);
 
             expect(_p.txErrors).toEqual(null);
 
@@ -372,7 +446,7 @@ describe("TxPipes tests", () => {
             });
 
             data.forEach((d) => {
-                _p.txWrite(Array.isArray(_p.txTap()) ? _p.txTap().concat(d) : [d]);
+                _p.txWrite(Array.isArray(_p.txTap()) ? [..._p.txTap(), d] : [d]);
             });
 
             expect(_p.txErrors).toEqual(null);

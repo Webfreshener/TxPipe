@@ -61,8 +61,10 @@ export class TxPipe {
         _pipes.set(this, {});
         _cache.set(this, []);
         pipesOrVOsOrSchemas = mapArgs(...pipesOrVOsOrSchemas);
+
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
         const _callbacks = fill(TxPipe.getExecs(...pipesOrVOsOrSchemas));
+
         const _inPipe = (
             Array.isArray(pipesOrVOsOrSchemas) && pipesOrVOsOrSchemas.length
         ) ? pipesOrVOsOrSchemas[0] : pipesOrVOsOrSchemas.length ?
@@ -71,15 +73,15 @@ export class TxPipe {
                 exec: (d) => d,
             };
 
-        const _pSchemas = [...pipesOrVOsOrSchemas].filter((_p) => {
-            return (// returns true if TxValidator
-                _p instanceof TxValidator) ||
-                (
+        const _pSchemas = [...pipesOrVOsOrSchemas]
+            .filter((_p) => {
+                return (
+                    // returns true if TxValidator
+                    (_p instanceof TxValidator) ||
                     // returns true if has `schema` attribute and is a valid `json-schema`
-                    _p.hasOwnProperty("schema") &&
-                    TxValidator.validateSchemas(_p.schema)
+                    _p["schema"]// && TxValidator.validateSchemas(_p.schema)
                 );
-        });
+            }).map(_ => _.schema);
 
         const _getInSchema = () => {
             if (_pSchemas.length) {
@@ -92,12 +94,16 @@ export class TxPipe {
         const _inSchema = _getInSchema();
         const _outSchema = _pSchemas.length > 1 ? _pSchemas[_pSchemas.length - 1] : _inSchema;
 
+        if (!_pSchemas.length) {
+            _pSchemas.splice(0, 0, {schemas: [DefaultVOSchema]}, {schemas: [DefaultVOSchema]});
+        }
+
         // stores config & state
         _pipes.set(this,
             TxProperties.init(this, {
-                // vo is always a TValdiator
                 vo: (_inPipe instanceof TxValidator) ? _inPipe : new TxValidator(_inSchema),
                 callbacks: _callbacks,
+                txSchemas: _pSchemas,
                 inSchema: _inSchema,
                 outSchema: _outSchema,
                 pOS: pipesOrVOsOrSchemas,
@@ -125,11 +131,18 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txPipe(...pipesOrSchemas) {
-        return new TxPipe([].concat(_pipes.get(this).out, ...pipesOrSchemas));
+        return new TxPipe([_pipes.get(this).out, ...pipesOrSchemas]);
     }
 
+    /**
+     * Returns arr
+     * @returns {*[]}
+     */
     get schema() {
-        return _pipes.get(this).schema;
+        return [
+            _pipes.get(this).vo.schema,
+            _pipes.get(this).out.schema
+        ];
     }
 
     /**
@@ -200,8 +213,8 @@ export class TxPipe {
      * Returns JSON-SCHEMA for `txPipe` output
      * @returns {object}
      */
-    get txSchema() {
-        return [].concat(_pipes.get(this).schema);
+    get txSchemas() {
+        return [..._pipes.get(this).txSchemas];
     }
 
     /**
@@ -245,18 +258,18 @@ export class TxPipe {
      */
     txMerge(pipeOrPipes, pipeOrSchema = {schemas: [DefaultVOSchema]}) {
         const _out = this.txPipe(pipeOrSchema);
-        _pipes.get(this).listeners = _pipes.get(this).listeners
-            .concat(
-                // -- feeds output of map to listeners array
-                (Array.isArray(pipeOrPipes) ? pipeOrPipes : [pipeOrPipes])
-                    .filter((_p) => ((typeof _p.subscribe) === "function"))
-                    .map((_p) => {
-                        _p.subscribe((d) => {
-                            // -- all pipes now write to output tx
-                            _out.txWrite(d.toJSON ? d.toJSON() : d);
-                        })
+        _pipes.get(this).listeners = [
+            ..._pipes.get(this).listeners,
+            // -- feeds output of map to listeners array
+            ...(Array.isArray(pipeOrPipes) ? pipeOrPipes : [pipeOrPipes])
+                .filter((_p) => ((typeof _p.subscribe) === "function"))
+                .map((_p) => {
+                    _p.subscribe((d) => {
+                        // -- all pipes now write to output tx
+                        _out.txWrite(d.toJSON ? d.toJSON() : d);
                     })
-            );
+                })
+        ];
         // -- returns output tx for observation
         return _out;
     }
@@ -281,7 +294,7 @@ export class TxPipe {
             constructor() {
                 super();
                 _pipes.set(this, $ref);
-                _pipes.get(this).listeners = [].concat($ref.listeners);
+                _pipes.get(this).listeners = [...$ref.listeners];
             }
         };
         return new _cz();

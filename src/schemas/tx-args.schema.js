@@ -1,58 +1,72 @@
 export default {
     $id: "http://schemas.webfreshener.com/v1/tx-args#",
-    schema: "http://json-schema.org/draft-07/schema#",
-    oneOf: [
-        {
-            $ref: "#/definitions/Schema",
-        },
-        {
-            allOf: [{
-                $ref: "#/definitions/Schemas",
-            }, {
-                max: 2,
-            }],
-        },
-        {
-            type: "object",
-            required: ["schemas"],
-            additionalProperties: false,
-            properties: {
-                schemas: {
-                    allOf: [{
-                        $ref: "#/definitions/Schema",
-                    }, {
-                        type: ["array"],
-                    }],
-                },
-                meta: {
-                    allOf: [{
-                        $ref: "#/definitions/Schema",
-                    }, {
-                        type: ["array"],
-                    }],
-                },
-                use: {
-                    type: "string",
-                },
-            },
-        },
-
+    $schema: "http://json-schema.org/draft-07/schema#",
+    anyOf: [
+        {$ref: "#/definitions/Schemas"},
+        {$ref: "#/definitions/Schema"},
+        {$ref: "#/definitions/Config"},
     ],
     definitions: {
-        Schema: {
+        Config: {
+            $id: "#/definitions/Config",
+            type: "object",
             allOf: [{
-                $ref: "http://json-schema.org/draft-07/schema#",
-            }, {
-                type: "object",
-            }],
-
+                required: ["schemas"],
+                additionalProperties: false,
+                properties: {
+                    schemas: {
+                        $ref: "#/definitions/Schemas",
+                    },
+                    meta: {
+                        $ref: "#/definitions/Schemas",
+                    },
+                    use: {
+                        type: "string",
+                    },
+                },
+            }]
         },
         Schemas: {
+            $id: "#/definitions/Schemas",
             type: "array",
             items: {
-                $ref: "#/definitions/Schema",
+                allOf: [
+                    {
+                        type: "object"
+                    }, {
+                        $ref: "#/definitions/Schema",
+                    }
+                ]
+
             },
-            min: 2,
+            minItems: 1,
+            maxItems: 2,
+        },
+        Schema: {
+            $id: "#/definitions/Schema",
+            properties: {
+                exec: {
+                    not: {},
+                },
+                execute: {
+                    not: {},
+                },
+                iterate: {
+                    not: {},
+                },
+                loop: {
+                    not: {},
+                },
+                schemas: {
+                    not: {},
+                },
+                meta: {
+                    not: {},
+                },
+                use: {
+                    not: {},
+                },
+            },
         },
     },
 };

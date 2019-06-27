@@ -30,7 +30,7 @@ import {TxValidator} from "./txValidator";
  */
 export class TxProperties {
     static init(txPipe, properties) {
-        const {callbacks, inSchema, outSchema, vo, pOS, _pipes} = properties;
+        const {callbacks, inSchema, outSchema, txSchemas, vo, pOS, _pipes} = properties;
         return Object.defineProperties({}, {
             callbacks: {
                 value: callbacks,
@@ -72,6 +72,13 @@ export class TxProperties {
                enumerable: true,
                configurable: false,
             },
+            txSchemas: {
+                // enforces 2 schema minimum (in/out)
+                value: txSchemas.length < 2 ? [...txSchemas, ...txSchemas] : txSchemas,
+                enumerable: true,
+                configurable: false,
+            },
+
             vo: {
                 get: () => vo,
                 enumerable: true,

@@ -18,7 +18,7 @@ export class TestSubClass extends TxPipe {
         super(
             // {schemas:[DefaultSchema]},
             // new TxPipe(
-            //     [].concat(pipesOrSchemas, {exec: (d) => d})
+            //     [...pipesOrSchemas, {exec: (d) => d}]
             // ),
             ...pipesOrSchemas,
         );
