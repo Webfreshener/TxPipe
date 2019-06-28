@@ -61,26 +61,20 @@ export const castToExec = (obj) => {
         return DefaultPipeTx;
     }
 
-    // // block out TxIterator stuff..
-    // if (obj instanceof TxIterator) {
-    //     return obj;
-    // }
-    //
-    // // -- if arg is array and not a Validator we cast to Iterator
-    // if (Array.isArray(obj) && !(obj instanceof TxValidator)) {
-    //     const _it = new TxIterator(...obj);
-    //     obj = {
-    //         exec: (d) => {
-    //             console.log(`exec loop: ${JSON.stringify(d)}`);
-    //             return _it.loop(d);
-    //         }
-    //     };
-    // }
-    //
-    // // -- if has loop, creates Iterator
-    // if (obj.loop) {
-    //     return new TxIterator(...(Array.isArray(obj.loop) ? obj.loop : [obj.loop]));
-    // }
+    // TxIterator...
+    if (
+        (obj["loop"] && !(obj instanceof TxIterator)) ||
+        (Array.isArray(obj) && !(obj[0] instanceof TxValidator))
+    ) {
+        obj = new TxIterator(...obj);
+    }
+
+    if (obj instanceof TxIterator) {
+        const _it = obj;
+        obj = {
+            exec: (d) => _it.loop(d),
+        };
+    }
 
     // -- if is pipe config item, we normalize for intake
     if ((typeof obj) === "function") {

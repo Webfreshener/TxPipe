@@ -58,6 +58,7 @@ const _cbIterator = (callbacks) => {
     if (Array.isArray(callbacks[0])) {
         callbacks = callbacks[0];
     }
+
     return {
         next: (data) => {
             return (_idx++ < (callbacks.length - 1)) ? {
