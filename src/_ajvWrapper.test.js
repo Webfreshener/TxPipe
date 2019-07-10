@@ -33,12 +33,8 @@ describe("AJVWrapper Tests", () => {
         });
 
         it("should reject < draft-07 schema refs", () => {
-            _ajv = new AjvWrapper({
-                schemas: [_04Schema],
-            });
-
             // should fail with errors
-            expect(_ajv.$ajv.errors === null).toBe(false);
+            expect(() => new AjvWrapper({schemas: [_04Schema],})).toThrow();
         });
 
         it("should reject with meta-schema", () => {

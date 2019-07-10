@@ -499,8 +499,10 @@ export class PipeListener {
 
         // capture output of callback
         const _t = _pipes.get(_pipes.get(this)).exec(data);
+        const _type = typeof _t;
+
         // tests if object and if object is writable
-        if (((typeof _t) === "object") && _target.txWritable) {
+        if ((_t instanceof Promise) || ((_type === "function") || (_type === "object")) && _target.txWritable) {
             const _out = (_) => {
                 // else we set the model for validation
                 try {
@@ -514,7 +516,30 @@ export class PipeListener {
             };
 
             if (_t instanceof Promise) {
-                return _t.then((_) => _out(_));
+                return _t.then((_) => {
+                    _out(_)
+                })
+                    .catch((e) => {
+                        _observers.get(this.out).error({
+                            error: e,
+                            data: data,
+                        });
+                    });
+            }
+
+            if (_type === "function") {
+                const __ = _t();
+                if (__ instanceof Promise) {
+                    return __.then((_) => {
+                        _out(_)
+                    })
+                        .catch((e) => {
+                            _observers.get(this.out).error({
+                                error: e,
+                                data: data,
+                            });
+                        });
+                }
             }
 
             _out(_t);

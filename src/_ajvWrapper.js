@@ -42,15 +42,16 @@ const addSchema = ($ajv, schema, schemaId) => {
         schemaId = AjvWrapper.getSchemaID(schema);
     }
 
-    try {
+    // try {
         if (_idRef.get($ajv).indexOf(schemaId) === -1) {
             _idRef.get($ajv).splice(_idRef.get($ajv).length, 0, schemaId);
+
             $ajv.addSchema(schema, schemaId);
             return true
         }
-    } catch (e) {
-        return false;
-    }
+    // } catch (e) {
+    //    return
+    // }
 };
 
 const addMetaSchema = ($ajv, schema) => {

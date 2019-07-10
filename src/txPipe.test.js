@@ -4,6 +4,7 @@ import {RxVO} from "rxvo";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as data} from "../fixtures/pipes-test.data";
 import {TestSubClass} from "../fixtures/pipes-instances";
+import {ServiceOptions} from "../fixtures/service-options.schema";
 
 const _pipesOrSchemas = [{
     schema: {
@@ -34,12 +35,41 @@ describe("TxPipes tests", () => {
 
         });
 
-        it("should work with Promises", (done) => {
+        it("should work as a Promise", (done) => {
             const _p = new TxPipe(..._pipesOrSchemas);
             _p.txPromise(data).then((res) => {
                 expect(res.length).toEqual(3);
                 done();
             }, done).catch(done);
+        });
+
+        it("should work with async/await", (done) => {
+            const _tx = new TxPipe(
+                {
+                    type: "object",
+                    properties: {
+
+                    }
+                },
+                async () => {
+                    return await new Promise((res) => {
+                        setTimeout(() => {
+                            res({data: "ok"});
+                        });
+                    })
+                });
+
+            _tx.subscribe({
+                next: (d) => {
+                    expect(d.data).toEqual("ok");
+                    done()
+                },
+                error: (e) => {
+                    done(e);
+                },
+            });
+
+            _tx.txWrite({});
         });
 
 
@@ -516,4 +546,9 @@ describe("TxPipes tests", () => {
         });
     });
 
+    // describe("service-options", () => {
+    //     it("should set service-options data", (done) => {
+    //
+    //     });
+    // });
 });

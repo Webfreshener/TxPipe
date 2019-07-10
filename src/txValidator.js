@@ -170,7 +170,7 @@ export class TxValidator {
                 });
             } else {
                 _observers.get(this).error({
-                    error: e,
+                    error: _t,
                     data: data,
                 });
             }
