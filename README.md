@@ -20,30 +20,29 @@ $ npm i txpipe
 #### Usage Example 
 ```
 import {TxPipe} from "txpipe";
-const _tx = new TxPIpe({
-    // any json-schema creates a validator
-    schema: {
-        type: "object",
-        properties: {
-            name: {
-                type: "string",
-                restrict: "/^[\w]+$/",
-            },
-            age: {
-                type: "number",
-                min: 21,
-                max: 130,
-            },
-            active: {
-                type: "boolean",
-            },
+const _tx = new TxPIpe(
+// any json-schema creates a validator
+{
+    type: "object",
+    properties: {
+        name: {
+            type: "string",
+            restrict: "/^[\w]+$/",
+        },
+        age: {
+            type: "number",
+            min: 21,
+            max: 130,
+        },
+        active: {
+            type: "boolean",
         },
     },
 },
-{
-    // any obhect with `exec` creates an executor
-    exec: (d) => d.active === true,
-});
+
+// any function creates an executor
+(d) => d.active === true,
+);
 
 _tx.subscribe({
     next: (d) => {

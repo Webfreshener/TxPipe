@@ -1,6 +1,6 @@
 {
   "name": "txpipe",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-beta.1",
   "description": "Reactive Transaction Pipes with JSON-Schema Validation",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Webfreshener/TxPipe.git"
+    "url": "git+https://github.com/Webfreshener/txpipe.git"
   },
   "keywords": [
     "transaction",
@@ -20,12 +20,16 @@
     "lambda",
     "validation"
   ],
-  "author": "Van Schroeder <van@webfreshener.com>",
+  "author": {
+    "name" : "Van Schroeder",
+    "email" : "van@webfreshener.com",
+    "url" : "https://github.com/vanschroeder"
+  },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Webfreshener/TxPipe/issues"
+    "url": "https://github.com/Webfreshener/txpipe/issues"
   },
-  "homepage": "https://github.com/Webfreshener/TxPipe#readme",
+  "homepage": "https://github.com/Webfreshener/txpipe#readme",
   "dependencies": {
     "rxjs": "^6.4.0",
     "rxjs-compat": "^6.4.0"
