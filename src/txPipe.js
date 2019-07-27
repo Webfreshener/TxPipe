@@ -386,11 +386,15 @@ export class TxPipe {
      */
     async txPromise(data) {
         return await new Promise((resolve, reject) => {
+            this.subscribe({
+                next: (d) => {
+                    resolve(d);
+                },
+                error: (e) => {
+                    reject(e);
+                }
+            });
             this.txWrite(data);
-            if (this.txErrors !== null) {
-                reject(this.txErrors);
-            }
-            resolve(this.txTap());
         });
     }
 
