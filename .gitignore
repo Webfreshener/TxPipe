@@ -18,8 +18,6 @@ lib-cov
 .idea
 .iml
 
-dist
-
 # Coverage directory used by tools like istanbul
 coverage
 
