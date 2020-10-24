@@ -288,7 +288,7 @@ describe("TxPipes tests", () => {
             expect(_.next().done).toBe(true);
         });
 
-        it.skip("should iterate with an iterable", (done) => {
+        it("should iterate with an iterable", (done) => {
             const _cb = jest.fn();
             const _tx = new TxPipe(
                 {
@@ -313,23 +313,19 @@ describe("TxPipes tests", () => {
                 },
                 [{
                     // any object with `loop` creates an iterator
-                    exec: (d) => {
-                        console.log(d.active === true);
-                        return d.active === true
-                    },
+                    exec: (d) => d.active === true,
                 }],
             );
 
             _tx.subscribe({
                 next: (d) => {
-                    expect(_cb).toHaveBeenCalledTimes(1);
-                    expect(d.length).toEqual(1);
+                    expect(_cb).toHaveBeenCalledTimes(0);
+                    expect(d.length).toEqual(2);
                     done();
                 },
-                error: ((e) => {
-                    console.log(e);
+                error: (e) => {
                     _cb();
-                }),
+                },
             });
 
             _tx.txWrite([

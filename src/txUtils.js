@@ -66,24 +66,30 @@ export const castToExec = (obj) => {
         (obj["loop"] && !(obj instanceof TxIterator)) ||
         (Array.isArray(obj) && !(obj[0] instanceof TxValidator))
     ) {
+
         obj = new TxIterator(...obj);
     }
 
     if (obj instanceof TxIterator) {
         const _it = obj;
         obj = {
-            exec: (d) => _it.loop(d),
+            exec: (d) => {
+                const _o = _it.loop ? _it.loop(d) : _it.exec ? _it.exec(d) : "iteration executor not found";
+                return _o
+            },
         };
-    }
 
-    // -- if is pipe config item, we normalize for intake
-    if ((typeof obj) === "function") {
-        return Object.assign({}, DefaultPipeTx, {exec: obj});
+        return new TxPipe(obj);
     }
 
     // -- if is pipe config item, we normalize for intake
     if ((typeof obj.exec) === "function") {
         return Object.assign({}, DefaultPipeTx, obj);
+    }
+
+    // -- if is pipe config item, we normalize for intake
+    if ((typeof obj) === "function") {
+        return Object.assign({}, DefaultPipeTx, {exec: obj});
     }
 
     // -- if TxPipe, our work here is already done

@@ -118,7 +118,7 @@ export class TxPipe {
         // define exec in constructor to ensure method visibility
         Object.defineProperty(this, "exec", {
             value: (data) => {
-                return _pipes.get(this).exec(data)
+                return _pipes.get(this).exec(data);
             },
             enumerable: true,
             configurable: false,
@@ -245,7 +245,8 @@ export class TxPipe {
                     .map((_) => `yield data=($cb[${_}].bind($scope))(data)`)
                     .join("; "),
                 "}).bind($scope);",
-            ].join(" "));
+            ].join(" ")
+        );
 
         return _f(this, _fill)(data);
     }

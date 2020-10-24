@@ -13,7 +13,7 @@ describe("TxUtils Tests", () => {
                 expect(castToExec(_func).exec().res).toBe(true);
             });
         });
-        describe.skip("iterator handling", () => {
+        describe("iterator handling", () => {
             it("it should cast array to iterator", () => {
                 const _res = castToExec([() => "ok"]);
                 expect(_res instanceof TxPipe).toBe(true);
