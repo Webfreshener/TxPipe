@@ -24,7 +24,7 @@ SOFTWARE.
 
 ############################################################################ */
 import {AjvWrapper} from "./_ajvWrapper";
-import {BehaviorSubject} from "rxjs/Rx";
+import {TxBehaviorSubject} from "./txBehaviorSubject";
 import {default as TxArgs} from "./schemas/tx-args.schema";
 import {default as DefaultVO} from "./schemas/default-vo.schema";
 const _models = new WeakMap();
@@ -40,12 +40,29 @@ export class TxValidator {
      * @returns {boolean}
      */
     static validateSchemas(schemas) {
-        if (schemas.hasOwnProperty("schema")) {
-            if (typeof schemas.schema === "object") {
-                return argsValidator.exec(TxArgs.$id, schemas.schema);
+        if (schemas["schema"]) {
+            if (typeof schemas.schema === "string") {
+                return argsValidator.exec(TxArgs.$id, schemas);
             }
         }
-        return argsValidator.exec(TxArgs.$id, schemas);
+        return argsValidator.exec(TxArgs.$id, schemas.schemas);
+    }
+
+    /**
+     *
+     * @param schemasOrConfig
+     * @returns {Object|null|*|undefined}
+     */
+    static deriveSchema(schemasOrConfig) {
+        if ((typeof schemasOrConfig) === "object" && !schemasOrConfig.schemas) {
+            return schemasOrConfig;
+        }
+
+        if (schemasOrConfig.use) {
+            return schemasOrConfig.schemas.find((_) => _.$id === schemasOrConfig.use).schema;
+        }
+
+        return schemasOrConfig.schemas.length ? schemasOrConfig.schemas[schemasOrConfig.schemas.length - 1] : null;
     }
 
     /**
@@ -58,17 +75,17 @@ export class TxValidator {
             throw "Schema or Schema Config required";
         }
         if (!TxValidator.validateSchemas(schemaOrConfig)) {
-            throw "Unable to process schema"
+            throw `Unable to process schema: ${JSON.stringify(argsValidator.$ajv.errors)}`;
         }
 
-        if (!schemaOrConfig.hasOwnProperty("schemas")) {
+        if (!schemaOrConfig["schemas"]) {
             schemaOrConfig = {
                 schemas: Array.isArray(schemaOrConfig) ? schemaOrConfig : [schemaOrConfig],
             };
         }
 
         Object.defineProperty(this, "schema", {
-            get: () => schemaOrConfig || {schemas:[DefaultVO]},
+            value: TxValidator.deriveSchema(schemaOrConfig) || {schemas:[DefaultVO]},
             enumerable: true,
         });
 
@@ -77,7 +94,8 @@ export class TxValidator {
         // this is just a quick guess at our default data type (object|array)
         _models.set(this, _baseSchema.hasOwnProperty("items") ? [] : {});
 
-        _observers.set(this, new BehaviorSubject(null).skip(1));
+        _observers.set(this, new TxBehaviorSubject());
+
         _validators.set(this, new AjvWrapper(schemaOrConfig, options || {}));
     }
 
@@ -119,15 +137,14 @@ export class TxValidator {
     /**
      * Performs validation of value without effecting state
      * @param value
-     * @deprecated
      */
     validate(value) {
-        const $id = AjvWrapper.getSchemaID(this.schema.schemas[0] || this.schema);
+        const $id = AjvWrapper.getSchemaID(this.schema[0] || this.schema);
         return _validators.get(this).exec($id, value);
     }
 
     test(value) {
-        const $id = AjvWrapper.getSchemaID(this.schema.schemas[0] || this.schema);
+        const $id = AjvWrapper.getSchemaID(this.schema[0] || this.schema);
         return _validators.get(this).exec($id, value);
     }
 
@@ -139,23 +156,23 @@ export class TxValidator {
         if (this.isFrozen) {
             return;
         }
-        //// -- original:
-        // if (this.test(data)) {
-        //     _models.set(this, data);
-        //     _observers.get(this).next(this);
-        // } else {
-        //     _observers.get(this).error(this.errors);
-        // }
-        const _t = this.test(data);
+
+        const _t = this.validate(data);
 
         if (_t === true) {
             _models.set(this, data);
-            _observers.get(this).next(this);
+            _observers.get(this).next(data);
         } else {
             if (_t === false) {
-                _observers.get(this).error(this.errors);
+                _observers.get(this).error({
+                    error: this.errors,
+                    data: data,
+                });
             } else {
-                _observers.get(this).error(_t);
+                _observers.get(this).error({
+                    error: _t,
+                    data: data,
+                });
             }
         }
     }
@@ -166,7 +183,7 @@ export class TxValidator {
      */
     get model() {
         const _d = _models.get(this);
-        return Array.isArray(_d) ? [].concat(_d) : Object.assign({}, _d);
+        return Array.isArray(_d) ? [..._d] : Object.assign({}, _d);
     }
 
     /**

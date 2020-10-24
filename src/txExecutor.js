@@ -53,7 +53,7 @@ export class TxExecutor {
  * @returns {{next: (function(*=): *)}}
  * @private
  */
-const _cbIterator = (...callbacks) => {
+const _cbIterator = (callbacks) => {
     let _idx = -1;
     if (Array.isArray(callbacks[0])) {
         callbacks = callbacks[0];

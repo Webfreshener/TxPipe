@@ -23,9 +23,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ############################################################################ */
+import {TxIterator} from "./txIterator";
 import {TxPipe} from "./txPipe";
 import {TxValidator} from "./txValidator";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema"
+
 const DefaultPipeTx = {
     schema: DefaultVOSchema,
     exec: (d) => d,
@@ -39,28 +41,45 @@ const DefaultPipeTx = {
  * @returns {any[]}
  */
 export const fill = (arr, value = ((d) => d), min = 2) => {
-    arr = [].concat(arr);
+    arr = [...arr];
     if (arr.length >= min) {
         return arr;
     }
-    return (arr = arr || []).concat(
-        Array( min - arr.length).fill(value, 0)
-    );
+    return [
+        ...(arr = arr || []),
+        ...(Array(min - arr.length).fill(value, 0))
+    ];
 };
 
 /**
  *
  * @param obj
- * @returns {{exec: function}|TxPipe|TxValidator}
+ * @returns {{exec: function}|TxIterator|TxPipe|TxValidator}
  */
 export const castToExec = (obj) => {
     if (!obj) {
         return DefaultPipeTx;
     }
 
-    // -- if arg is array, we recurse
-    if (Array.isArray(obj) && !(obj instanceof TxValidator)) {
-        return obj.map((o) => castToExec(o));
+    // TxIterator...
+    if (
+        (obj["loop"] && !(obj instanceof TxIterator)) ||
+        (Array.isArray(obj) && !(obj[0] instanceof TxValidator))
+    ) {
+
+        obj = new TxIterator(...obj);
+    }
+
+    if (obj instanceof TxIterator) {
+        const _it = obj;
+        obj = {
+            exec: (d) => {
+                const _o = _it.loop ? _it.loop(d) : _it.exec ? _it.exec(d) : "iteration executor not found";
+                return _o
+            },
+        };
+
+        return new TxPipe(obj);
     }
 
     // -- if is pipe config item, we normalize for intake
@@ -68,23 +87,33 @@ export const castToExec = (obj) => {
         return Object.assign({}, DefaultPipeTx, obj);
     }
 
+    // -- if is pipe config item, we normalize for intake
+    if ((typeof obj) === "function") {
+        return Object.assign({}, DefaultPipeTx, {exec: obj});
+    }
+
     // -- if TxPipe, our work here is already done
     if (obj instanceof TxPipe) {
         return obj;
     }
 
-    // -- if is straight up schema, we create validator instance
+    // -- if is JSON-Schema, cast as TxValidator instance
     if (TxValidator.validateSchemas(obj)) {
-        return new TxValidator(
-            (Array.isArray(obj) && !obj.length) ? {schemas: [DefaultVOSchema]} : obj
-        );
+        obj = new TxValidator(obj);
     }
 
+    // -- wraps Validators as Exec'bles
     if ((typeof obj["validate"]) === "function") {
         // return Object.assign({}, DefaultValidatorTx, obj);
-        return Object.defineProperties({},{
+        return Object.defineProperties({}, {
             exec: {
-                value: (d) => obj["validate"](d),
+                value: (d) => {
+                    const _res = obj["validate"](d);
+                    if (!_res || (typeof _res) === "string") {
+                        return _res;
+                    }
+                    return d;
+                },
                 enumerable: true,
                 configurable: false,
             },
@@ -92,13 +121,18 @@ export const castToExec = (obj) => {
                 get: () => obj.schema,
                 enumerable: true,
                 configurable: false,
-            }
+            },
+            errors: {
+                get: () => obj.errors,
+                enumerable: true,
+                configurable: false,
+            },
         });
     }
 
     // attempts to map to Tx-able object
     return Object.assign({}, DefaultPipeTx, obj);
-}
+};
 
 /**
  *
@@ -107,7 +141,12 @@ export const castToExec = (obj) => {
  */
 export const handleAsync = (cb) => (async (d) => await new Promise(
     (resolve) => d.then((_) => resolve(cb(_)))
-));
+        .catch((e) => {
+            return JSON.stringify(e);
+        })
+).catch((e) => {
+    return JSON.stringify(e);
+}));
 
 /**
  *
@@ -134,5 +173,5 @@ export const mapArgs = (...args) => {
     }
 
     // normalizes args list and wraps in txPipe Protocol
-    return [].concat(...args).map(castToExec);
+    return [...args].map(castToExec);
 };

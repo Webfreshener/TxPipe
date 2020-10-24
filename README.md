@@ -19,7 +19,45 @@ $ npm i txpipe
 
 #### Usage Example 
 ```
+import {TxPipe} from "txpipe";
+const _tx = new TxPIpe(
+// any json-schema creates a validator
+{
+    type: "object",
+    properties: {
+        name: {
+            type: "string",
+            restrict: "/^[\w]+$/",
+        },
+        age: {
+            type: "number",
+            min: 21,
+            max: 130,
+        },
+        active: {
+            type: "boolean",
+        },
+    },
+},
 
+// any function creates an executor
+(d) => d.active === true,
+);
+
+_tx.subscribe({
+    next: (d) => {
+        console.log(`final result:\n${JSON.stringiy(d)}`);
+    },
+    error: ((e) => {
+        console.log(JSON.stringify(e));
+    }),
+});
+
+_tx.txWrite([
+    {name: "sam", age: 25, active: true},
+    {name: "fred", age: 20, active: true},
+    {name: "alice", age: 30, active: false},
+]);
 
 ```
 
@@ -28,8 +66,8 @@ Observable Transaction Pipes with JSON-Schema Validation
 #### TxPipe Class ####
 | Method        | Arguments | Description  |
 |:--------------|:----------|:-------|
-| constructor | vo, ...pipesOrSchemas | Class constructor method |
-| exec | data (object/array)| Executes pipe's callback with data without writing to `pipe` |
+| constructor | ...pipesOrSchemas | Class constructor method |
+| exec | data (object/array)| Executes pipe's callback as non-transactional pass-through |
 | subscribe | handler (object / function)| Subscribes to `pipe` output notifications |
 | toJSON | | Provides current state of `pipe` output as JSON |
 | toString | | Provides current state of `pipe` output as JSON string |

@@ -41,10 +41,17 @@ const addSchema = ($ajv, schema, schemaId) => {
     if (!schemaId) {
         schemaId = AjvWrapper.getSchemaID(schema);
     }
-    if (_idRef.get($ajv).indexOf(schemaId) === -1) {
-        _idRef.get($ajv).splice(_idRef.get($ajv).length, 0, schemaId);
-        $ajv.addSchema(schema, schemaId);
-    }
+
+    // try {
+        if (_idRef.get($ajv).indexOf(schemaId) === -1) {
+            _idRef.get($ajv).splice(_idRef.get($ajv).length, 0, schemaId);
+
+            $ajv.addSchema(schema, schemaId);
+            return true
+        }
+    // } catch (e) {
+    //    return
+    // }
 };
 
 const addMetaSchema = ($ajv, schema) => {
@@ -140,8 +147,9 @@ export class AjvWrapper {
         try {
             _res = this.$ajv.validate(path, value);
         } catch (e) {
-            return false;
+            return e.toString();
         }
+
         return _res;
     }
 
@@ -194,10 +202,10 @@ const createAJV = (schemas, opts) => {
     if (schemas) {
         _metaTest(_ajv, schemas);
         // todo: review performance of addSchema
-        schemas = (schemas.hasOwnProperty("schemas")) ? schemas.schemas : schemas;
+        schemas = schemas["schemas"] ? schemas.schemas : schemas;
         if (Array.isArray(schemas)) {
             schemas.forEach((schema) => {
-                _metaTest(_ajv, schema);
+                // _metaTest(_ajv, schema);
                 addSchema(_ajv, schema);
             });
         } else {
