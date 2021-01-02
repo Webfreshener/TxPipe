@@ -45,10 +45,6 @@ describe("TxPipes tests", () => {
 
         it("should work with async/await", (done) => {
             const _tx = new TxPipe(
-                {
-                    type: "object",
-                    properties: {}
-                },
                 async () => {
                     return await new Promise((res) => {
                         setTimeout(() => {
