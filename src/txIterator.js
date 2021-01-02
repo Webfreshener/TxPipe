@@ -20,22 +20,25 @@ export class TxIterator {
             return "iterators accept iterable values only"
         }
 
-        const _res = [];
+        let _res = [];
 
-        records.forEach((_) => {
-            const _it = _pipes.get(this).txYield(_);
-            let _done = false;
-            let _value = _;
-            while (!_done) {
-                let {done, value} = _it.next(_value);
-                if (!(_done = done)) {
-                    _value = value;
+        records.forEach(
+            (_) => {
+                const _it = _pipes.get(this).txYield(_);
+                let _done = false;
+                let _value = _;
+                while (!_done) {
+                    let {done, value} = _it.next(_value);
+                    if (!(_done = done)) {
+                        _value = value;
+                    }
                 }
-            }
-            if (_value && (typeof _value) !== "string") {
-                _res[_res.length] = _value;
-            }
-        });
+
+                if (_value) {
+                    _res[_res.length] = _value;
+                }
+
+            });
 
         return _res;
     }

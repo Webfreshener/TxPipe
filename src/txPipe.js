@@ -31,7 +31,6 @@ import {TxProperties} from "./txProperties";
 
 const _pipes = new WeakMap();
 const _cache = new WeakMap();
-const _listeners = new WeakMap();
 
 /**
  * TxPipe Class
@@ -60,6 +59,19 @@ export class TxPipe {
     constructor(...pipesOrVOsOrSchemas) {
         _pipes.set(this, {});
         _cache.set(this, []);
+
+        // TODO: solve this issue with async methods to remove kludge
+        if (pipesOrVOsOrSchemas[0] instanceof Function) {
+            // tests async for nodejs then for Browser JS
+            if ((typeof (pipesOrVOsOrSchemas[0]()).then === "function") ||
+                pipesOrVOsOrSchemas[0].constructor.name === "AsyncFunction") {
+                pipesOrVOsOrSchemas.splice(0, 0, {
+                    type: "object",
+                    properties: {},
+                });
+            }
+        }
+
         pipesOrVOsOrSchemas = mapArgs(...pipesOrVOsOrSchemas);
 
         // enforces 2 callback minimum for `reduce` by appending pass-thru callbacks
@@ -75,11 +87,12 @@ export class TxPipe {
 
         const _pSchemas = [...pipesOrVOsOrSchemas]
             .filter((_p) => {
+                // filters array for validators and valid schemas
                 return (
                     // returns true if TxValidator
                     (_p instanceof TxValidator) ||
                     // returns true if has `schema` attribute and is a valid `json-schema`
-                    _p["schema"]// && TxValidator.validateSchemas(_p.schema)
+                    _p["schema"] && TxValidator.validateSchemas(_p.schema)
                 );
             }).map(_ => _.schema);
 
@@ -117,9 +130,7 @@ export class TxPipe {
 
         // define exec in constructor to ensure method visibility
         Object.defineProperty(this, "exec", {
-            value: (data) => {
-                return _pipes.get(this).exec(data)
-            },
+            value: (data) => _pipes.get(this).exec(data),
             enumerable: true,
             configurable: false,
         });
@@ -245,7 +256,8 @@ export class TxPipe {
                     .map((_) => `yield data=($cb[${_}].bind($scope))(data)`)
                     .join("; "),
                 "}).bind($scope);",
-            ].join(" "));
+            ].join(" ")
+        );
 
         return _f(this, _fill)(data);
     }
@@ -479,7 +491,7 @@ export class PipeListener {
      */
     next(data) {
         // enforces JSON formatting if feature is present
-        data = data.toJSON ? data.toJSON() : data;
+        data = data && data.toJSON ? data.toJSON() : data;
         const _target = _pipes.get(this);
         // tests for presence of rate-limit timeout
         if (_pipes.get(_target).tO) {

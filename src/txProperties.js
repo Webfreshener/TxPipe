@@ -25,6 +25,7 @@ SOFTWARE.
 ############################################################################ */
 import {TxExecutor} from "./txExecutor";
 import {TxValidator} from "./txValidator";
+
 /**
  *
  */
@@ -48,7 +49,7 @@ export class TxProperties {
                 configurable: false,
             },
             exec: {
-                value: (_ = false) => TxExecutor.exec(callbacks, _),
+                value: (__) => TxExecutor.exec(callbacks, __),
                 enumerable: false,
                 configurable: false,
             },
@@ -68,9 +69,9 @@ export class TxProperties {
                 configurable: false,
             },
             schema: {
-               value: [inSchema, outSchema],
-               enumerable: true,
-               configurable: false,
+                value: [inSchema, outSchema],
+                enumerable: true,
+                configurable: false,
             },
             txSchemas: {
                 // enforces 2 schema minimum (in/out)
@@ -91,4 +92,4 @@ export class TxProperties {
             }
         });
     }
-}
+};

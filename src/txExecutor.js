@@ -43,6 +43,7 @@ export class TxExecutor {
                 _value = value;
             }
         }
+
         return _value;
     };
 }
@@ -62,7 +63,7 @@ const _cbIterator = (callbacks) => {
     return {
         next: (data) => {
             return (_idx++ < (callbacks.length - 1)) ? {
-                value: (wrapCallback(callbacks[_idx]))(data),
+                value: (wrapCallback(callbacks[_idx] || ((__) => __)))(data),
                 done: false,
             } : {
                 value: data || false,
