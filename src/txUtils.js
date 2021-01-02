@@ -74,7 +74,8 @@ export const castToExec = (obj) => {
         const _it = obj;
         obj = {
             exec: (d) => {
-                const _o = _it.loop ? _it.loop(d) : _it.exec ? _it.exec(d) : "iteration executor not found";
+                const _o = _it.loop ? _it.loop(d) : _it.exec ? _it.exec(d) :
+                    "iteration executor not found";
                 return _o
             },
         };
@@ -82,15 +83,17 @@ export const castToExec = (obj) => {
         return new TxPipe(obj);
     }
 
-    // -- if is pipe config item, we normalize for intake
-    if ((typeof obj.exec) === "function") {
-        return Object.assign({}, DefaultPipeTx, obj);
-    }
 
     // -- if is pipe config item, we normalize for intake
     if ((typeof obj) === "function") {
         return Object.assign({}, DefaultPipeTx, {exec: obj});
     }
+
+    // -- if is pipe config item, we normalize for intake
+    if ((typeof obj.exec) === "function") {
+        return Object.assign({}, DefaultPipeTx, obj);
+    }
+
 
     // -- if TxPipe, our work here is already done
     if (obj instanceof TxPipe) {

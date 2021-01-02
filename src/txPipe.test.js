@@ -47,15 +47,13 @@ describe("TxPipes tests", () => {
             const _tx = new TxPipe(
                 {
                     type: "object",
-                    properties: {
-
-                    }
+                    properties: {}
                 },
                 async () => {
                     return await new Promise((res) => {
                         setTimeout(() => {
                             res({data: "ok"});
-                        });
+                        }, 100);
                     })
                 });
 
@@ -71,7 +69,6 @@ describe("TxPipes tests", () => {
 
             _tx.txWrite({});
         });
-
 
         it("should stop if a pipe returns false", (done) => {
             const _p = new TxPipe(
