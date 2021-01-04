@@ -13,6 +13,7 @@ describe("AJVWrapper Tests", () => {
 
     describe("AJV Schema Validation", () => {
         beforeEach(() => {
+            console.log(JSON.stringify(basicModel, null, 2));
             _ajv = new AjvWrapper({
                 schemas: [basicModel],
             });
@@ -38,13 +39,11 @@ describe("AJVWrapper Tests", () => {
         });
 
         it("should reject with meta-schema", () => {
-            _ajv = new AjvWrapper({
-                meta: [JSONSchemaV4],
-                schemas: [_04Schema],
-            });
-
             // should fail with errors
-            expect(_ajv.$ajv.errors === null).toBe(true);
+            expect(() => new AjvWrapper({
+                meta: [JSONSchemaV4],
+                schemas: [_04Schema]
+            })).toThrow();
         });
     });
 

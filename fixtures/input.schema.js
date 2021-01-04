@@ -69,7 +69,7 @@ export default {
                 },
                 _eventsCount: {
                     type: "number",
-                    min: 0,
+                    minimum: 0,
                 },
                 _maxListeners: {
                     type: "number",

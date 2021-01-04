@@ -184,6 +184,9 @@ export class TxPipe {
 
                 target.txWrite(_res);
             },
+            error: (e) => {
+                console.error(e);
+            },
             // handles unlink & cleanup on complete
             complete: () => this.txUnlink(target)
         });

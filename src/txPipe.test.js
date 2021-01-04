@@ -153,7 +153,7 @@ describe("TxPipes tests", () => {
         });
     });
 
-    describe("TxPipes Data Tests", () => {
+    describe.only("TxPipes Data Tests", () => {
         let _p;
 
         beforeEach(() => {
@@ -230,7 +230,7 @@ describe("TxPipes tests", () => {
                 expect(_cb).toHaveBeenCalledTimes(2);
                 expect(_split[0].txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
                 expect(_split[1].txTap()[0].age).toEqual(99);
-            }, 10);
+            }, 50);
         });
 
         it("should exec multiple pipes inline", () => {
@@ -286,21 +286,18 @@ describe("TxPipes tests", () => {
             const _tx = new TxPipe(
                 {
                     // any json-schema creates a validator
-                    schema: {
-                        type: "object",
-                        properties: {
-                            name: {
-                                type: "string",
-                                restrict: "/^[\w]+$/",
-                            },
-                            age: {
-                                type: "number",
-                                min: 21,
-                                max: 130,
-                            },
-                            active: {
-                                type: "boolean",
-                            },
+                    properties: {
+                        name: {
+                            type: "string",
+                            pattern: "/^[\w]+$/",
+                        },
+                        age: {
+                            type: "number",
+                            minimum: 21,
+                            maximum: 130,
+                        },
+                        active: {
+                            type: "boolean",
                         },
                     },
                 },
@@ -317,7 +314,7 @@ describe("TxPipes tests", () => {
                     done();
                 },
                 error: (e) => {
-                    _cb();
+                    done(e);
                 },
             });
 
@@ -380,7 +377,7 @@ describe("TxPipes tests", () => {
             _sub2.unsubscribe();
         });
 
-        it("should link and unlink pipes", () => {
+        it.only("should link and unlink pipes", () => {
             const _cb = jest.fn();
             const _TxValidator = new TxValidator({schemas: [basicCollection]});
             const _link = new TxPipe(_TxValidator, {schemas: [basicCollection]});
@@ -391,9 +388,7 @@ describe("TxPipes tests", () => {
             });
 
             _p.txWrite(data);
-
             expect(_p.txErrors).toEqual(null);
-
             expect(_cb).toHaveBeenCalledTimes(1);
 
             // we capture state for comparison

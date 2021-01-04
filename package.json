@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/Webfreshener/txpipe#readme",
   "dependencies": {
-    "ajv": "^6.12.6",
+    "ajv": "^7.0.2",
     "rxjs": "^6.6.3",
     "rxjs-compat": "^6.6.3"
   },

@@ -20,15 +20,15 @@ describe("TxValidator Test Suite", () => {
          expect(TxValidator.validateSchemas(nameRequiredSchema)).toEqual(true);
       })
    });
-   describe("basic validation", () => {
+   describe.only("basic validation", () => {
       let _txV;
       beforeEach(() => {
          _txV = new TxValidator( {
-            meta: [JSONSchemaDraft04],
+            meta: [],
             schemas: [basicModel]
          });
       });
-      it("should validate data", () => {
+      it.only("should validate data", () => {
          _txV.model = {
             name: "test",
             active: true,
