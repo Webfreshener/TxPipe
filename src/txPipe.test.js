@@ -4,7 +4,6 @@ import {RxVO} from "rxvo";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as data} from "../fixtures/pipes-test.data";
 import {TestSubClass} from "../fixtures/pipes-instances";
-import {ServiceOptions} from "../fixtures/service-options.schema";
 
 const _pipesOrSchemas = [{
     schema: {
@@ -153,7 +152,7 @@ describe("TxPipes tests", () => {
         });
     });
 
-    describe.only("TxPipes Data Tests", () => {
+    describe("TxPipes Data Tests", () => {
         let _p;
 
         beforeEach(() => {
@@ -286,18 +285,22 @@ describe("TxPipes tests", () => {
             const _tx = new TxPipe(
                 {
                     // any json-schema creates a validator
-                    properties: {
-                        name: {
-                            type: "string",
-                            pattern: "/^[\w]+$/",
-                        },
-                        age: {
-                            type: "number",
-                            minimum: 21,
-                            maximum: 130,
-                        },
-                        active: {
-                            type: "boolean",
+                    type: "array",
+                    items: {
+                        type: "object",
+                        properties: {
+                            name: {
+                                type: "string",
+                                pattern: "^[a-zA-Z]{1,24}$",
+                            },
+                            age: {
+                                type: "number",
+                                minimum: 20,
+                                maximum: 100,
+                            },
+                            active: {
+                                type: "boolean",
+                            },
                         },
                     },
                 },
@@ -377,7 +380,7 @@ describe("TxPipes tests", () => {
             _sub2.unsubscribe();
         });
 
-        it.only("should link and unlink pipes", () => {
+        it("should link and unlink pipes", () => {
             const _cb = jest.fn();
             const _TxValidator = new TxValidator({schemas: [basicCollection]});
             const _link = new TxPipe(_TxValidator, {schemas: [basicCollection]});
@@ -529,10 +532,4 @@ describe("TxPipes tests", () => {
             const _p = new TxPipe(_vo);
         });
     });
-
-    // describe("service-options", () => {
-    //     it("should set service-options data", (done) => {
-    //
-    //     });
-    // });
 });

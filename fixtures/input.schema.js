@@ -82,7 +82,7 @@ export default {
             items: {
                 $ref: "#/definitions/eventItem",
             },
-            minLength: 1,
+            minItems: 1,
         },
         eventItem: {
             $id: "#/definitions/eventItem",

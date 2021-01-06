@@ -1,6 +1,5 @@
 import {TxValidator} from "./txValidator";
 import {basicModel, nameRequiredSchema} from "../fixtures/PropertiesModel.schemas";
-import {default as JSONSchemaDraft04} from "../fixtures/json-schema-draft-04";
 import {default as DefaultVO} from  "./schemas/default-vo.schema";
 describe("TxValidator Test Suite", () => {
    describe("Schema Handling", () => {
@@ -20,7 +19,7 @@ describe("TxValidator Test Suite", () => {
          expect(TxValidator.validateSchemas(nameRequiredSchema)).toEqual(true);
       })
    });
-   describe.only("basic validation", () => {
+   describe("basic validation", () => {
       let _txV;
       beforeEach(() => {
          _txV = new TxValidator( {
@@ -28,7 +27,7 @@ describe("TxValidator Test Suite", () => {
             schemas: [basicModel]
          });
       });
-      it.only("should validate data", () => {
+      it("should validate data", () => {
          _txV.model = {
             name: "test",
             active: true,
@@ -45,7 +44,8 @@ describe("TxValidator Test Suite", () => {
       });
    });
 
-   describe("validation with meta", () => {
+   // TODO: find other use-case for meta besides Schema Draft 04 (no longer supported)
+   describe.skip("validation with meta", () => {
       let _txV;
       beforeEach(() => {
          _txV = new TxValidator( {

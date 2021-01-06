@@ -1,11 +1,6 @@
 export default {
     $id: "http://schemas.webfreshener.com/v1/tx-args#",
     $schema: "http://json-schema.org/draft-07/schema#",
-    anyOf: [
-        {$ref: "#/definitions/Schemas"},
-        {$ref: "#/definitions/Schema"},
-        {$ref: "#/definitions/Config"},
-    ],
     definitions: {
         Config: {
             $id: "#/definitions/Config",
@@ -13,6 +8,7 @@ export default {
             allOf: [{
                 required: ["schemas"],
                 additionalProperties: false,
+                type: "object",
                 properties: {
                     schemas: {
                         $ref: "#/definitions/Schemas",
@@ -44,7 +40,17 @@ export default {
         },
         Schema: {
             $id: "#/definitions/Schema",
+            type: "object",
             properties: {
+                $id: {
+                    type: "string",
+                },
+                $schema: {
+                    type: "string",
+                },
+                type: {
+                    type: ["string", "array"],
+                },
                 exec: {
                     not: {},
                 },
@@ -69,4 +75,9 @@ export default {
             },
         },
     },
+    anyOf: [
+        {$ref: "#/definitions/Config"},
+        {$ref: "#/definitions/Schema"},
+        {$ref: "#/definitions/Schemas"},
+    ],
 };

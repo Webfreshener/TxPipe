@@ -229,9 +229,9 @@ const _ajvOptions = {
     // // validation and reporting options:
     // $data:            false,
     // allErrors:        true,
+    allowUnionTypes:     true,
     // verbose:          true,
     // $comment:         false, // NEW in Ajv version 6.0
-    jsPropertySyntax: true,
     // uniqueItems:      true,
     // unicode:          true,
     // format:           'fast',
@@ -242,7 +242,6 @@ const _ajvOptions = {
     // // referenced schema options:
     // schemaId: 'auto',
     // missingRefs:      true,
-    ignoreKeywordsWithRef: true, // default 'ignore'
     // loadSchema:       undefined, // function(uri: string): Promise {}
     // // options to modify validated data:
     removeAdditional: false,
