@@ -44,8 +44,13 @@ export class TxValidator {
             if (typeof schemas.schema === "string") {
                 return argsValidator.exec(TxArgs.$id, schemas);
             }
+            return false;
         }
-        return argsValidator.exec(TxArgs.$id, schemas.schemas);
+        if (schemas["schemas"]) {
+            return argsValidator.exec(TxArgs.$id, schemas.schemas);
+        }
+
+        return argsValidator.exec(TxArgs.$id, schemas);
     }
 
     /**

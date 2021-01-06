@@ -69,7 +69,7 @@ export default {
                 },
                 _eventsCount: {
                     type: "number",
-                    min: 0,
+                    minimum: 0,
                 },
                 _maxListeners: {
                     type: "number",
@@ -82,7 +82,7 @@ export default {
             items: {
                 $ref: "#/definitions/eventItem",
             },
-            minLength: 1,
+            minItems: 1,
         },
         eventItem: {
             $id: "#/definitions/eventItem",

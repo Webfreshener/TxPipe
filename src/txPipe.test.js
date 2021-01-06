@@ -4,7 +4,6 @@ import {RxVO} from "rxvo";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as data} from "../fixtures/pipes-test.data";
 import {TestSubClass} from "../fixtures/pipes-instances";
-import {ServiceOptions} from "../fixtures/service-options.schema";
 
 const _pipesOrSchemas = [{
     schema: {
@@ -45,10 +44,6 @@ describe("TxPipes tests", () => {
 
         it("should work with async/await", (done) => {
             const _tx = new TxPipe(
-                {
-                    type: "object",
-                    properties: {}
-                },
                 async () => {
                     return await new Promise((res) => {
                         setTimeout(() => {
@@ -234,7 +229,7 @@ describe("TxPipes tests", () => {
                 expect(_cb).toHaveBeenCalledTimes(2);
                 expect(_split[0].txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
                 expect(_split[1].txTap()[0].age).toEqual(99);
-            }, 10);
+            }, 50);
         });
 
         it("should exec multiple pipes inline", () => {
@@ -290,17 +285,18 @@ describe("TxPipes tests", () => {
             const _tx = new TxPipe(
                 {
                     // any json-schema creates a validator
-                    schema: {
+                    type: "array",
+                    items: {
                         type: "object",
                         properties: {
                             name: {
                                 type: "string",
-                                restrict: "/^[\w]+$/",
+                                pattern: "^[a-zA-Z]{1,24}$",
                             },
                             age: {
                                 type: "number",
-                                min: 21,
-                                max: 130,
+                                minimum: 20,
+                                maximum: 100,
                             },
                             active: {
                                 type: "boolean",
@@ -321,7 +317,7 @@ describe("TxPipes tests", () => {
                     done();
                 },
                 error: (e) => {
-                    _cb();
+                    done(e);
                 },
             });
 
@@ -395,9 +391,7 @@ describe("TxPipes tests", () => {
             });
 
             _p.txWrite(data);
-
             expect(_p.txErrors).toEqual(null);
-
             expect(_cb).toHaveBeenCalledTimes(1);
 
             // we capture state for comparison
@@ -538,10 +532,4 @@ describe("TxPipes tests", () => {
             const _p = new TxPipe(_vo);
         });
     });
-
-    // describe("service-options", () => {
-    //     it("should set service-options data", (done) => {
-    //
-    //     });
-    // });
 });

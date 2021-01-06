@@ -66,6 +66,8 @@ export class TxPipe {
             if ((typeof (pipesOrVOsOrSchemas[0]()).then === "function") ||
                 pipesOrVOsOrSchemas[0].constructor.name === "AsyncFunction") {
                 pipesOrVOsOrSchemas.splice(0, 0, {
+                    $id: "root#",
+                    $schema: "http://json-schema.org/draft-07/schema#",
                     type: "object",
                     properties: {},
                 });
@@ -183,6 +185,9 @@ export class TxPipe {
                 }
 
                 target.txWrite(_res);
+            },
+            error: (e) => {
+                console.error(e);
             },
             // handles unlink & cleanup on complete
             complete: () => this.txUnlink(target)
