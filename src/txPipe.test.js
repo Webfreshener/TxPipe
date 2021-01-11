@@ -1,10 +1,14 @@
 import {TxValidator} from "./txValidator";
 import {TxPipe} from "./txPipe";
-import {RxVO} from "rxvo";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as data} from "../fixtures/pipes-test.data";
 import {TestSubClass} from "../fixtures/pipes-instances";
 
+/**
+ * Represents a basic TxPipe workflow signature
+ * @type {{schema: {schemas: [{$schema: string, type: string, items: {type: string, properties: {name: {type: string}, active: {type: string}, age: {type: string}}}, $id: string}]}, exec: (function(*=): *|boolean)}[]}
+ * @private
+ */
 const _pipesOrSchemas = [{
     schema: {
         schemas: [basicCollection],
@@ -18,8 +22,8 @@ const _vo = {
     schema: _pipesOrSchemas[0].schema,
 };
 
-describe("TxPipes tests", () => {
-    describe("TxPipes API Tests", () => {
+describe("TxPipe tests", () => {
+    describe("TxPipe API Tests", () => {
         it("should provide a schema", () => {
             const _p = (new TxPipe(..._pipesOrSchemas)).txSchemas;
             expect(JSON.stringify(_p[0])).toEqual(
@@ -133,6 +137,23 @@ describe("TxPipes tests", () => {
             });
 
             _p.txWrite(data[0]);
+        });
+
+        it("should create schema iterator if wrapped in array", (done) => {
+            const _tx = new TxPipe([{type: "boolean"}]);
+            const _data = [true, true, false]
+            _tx.subscribe({
+                next: (d) => {
+                    expect(d).toEqual(_data);
+                    done();
+                },
+                error: (e) => {
+                    done(e);
+                }
+            });
+
+            _tx.txWrite(_data);
+
         });
 
         it("pipe should pipe", (done) => {
@@ -283,11 +304,16 @@ describe("TxPipes tests", () => {
         it("should iterate with an iterable", (done) => {
             const _cb = jest.fn();
             const _tx = new TxPipe(
+                [{
+                    // any object with `loop` creates an iterator
+                    exec: (d) => d.active === true ? d : void 0,
+                }],
                 {
                     // any json-schema creates a validator
                     type: "array",
                     items: {
                         type: "object",
+                        required: ["age"],
                         properties: {
                             name: {
                                 type: "string",
@@ -304,10 +330,6 @@ describe("TxPipes tests", () => {
                         },
                     },
                 },
-                [{
-                    // any object with `loop` creates an iterator
-                    exec: (d) => d.active === true,
-                }],
             );
 
             _tx.subscribe({
@@ -325,6 +347,7 @@ describe("TxPipes tests", () => {
                 {name: "sam", age: 25, active: true},
                 {name: "fred", age: 20, active: true},
                 {name: "alice", age: 30, active: false},
+                {name: "Undefined", active: null},
             ]);
         });
 
@@ -422,7 +445,7 @@ describe("TxPipes tests", () => {
 
         it("should be observable", (done) => {
             let _ival = 0;
-            const _d = data[0];
+
             const _iterator = {
                 next: () => {
                     return (_ival++ < 50) ? {
@@ -474,7 +497,7 @@ describe("TxPipes tests", () => {
         });
 
 
-        it("should merge multiple pipes into a single output", () => {
+        it("should merge multiple pipes into a single output", (done) => {
             const _p1 = new TxPipe({
                 schema: _vo.schema,
                 exec: (d) => d.map((m) => Object.assign(m, {name: `${m.name} RENAMED`})),
@@ -493,23 +516,24 @@ describe("TxPipes tests", () => {
                 )
             });
 
-            const _cb = jest.fn();
-            _merged.subscribe(_cb);
+            let _cnt = 0;
+            _merged.subscribe({
+                next: (d) => {
+                    if (!_cnt) {
+                        _cnt++;
+                        expect(_merged.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+                        expect(_merged.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
+                        _p2.txWrite(data);
+                    } else {
+                        expect(_merged.txTap().length).toEqual(data.length);
+                        expect(_merged.txTap()[0].age).toEqual(99);
+                        expect(_merged.txTap()[data.length - 1].age).toEqual(99);
+                        done();
+                    }
+                }
+            });
 
             _p1.txWrite(data);
-
-            expect(_cb).toHaveBeenCalledTimes(1);
-
-            expect(_merged.txTap()[0].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-            expect(_merged.txTap()[data.length - 1].name.match(/.*\sRENAMED+$/)).toBeTruthy();
-
-            _p2.txWrite(data);
-
-            expect(_cb).toHaveBeenCalledTimes(2);
-
-            expect(_merged.txTap().length).toEqual(data.length);
-            expect(_merged.txTap()[0].age).toEqual(99);
-            expect(_merged.txTap()[data.length - 1].age).toEqual(99);
         });
     });
 
@@ -527,9 +551,25 @@ describe("TxPipes tests", () => {
             expect(_.txWrite(_data).txTap()).toEqual(_res);
         });
 
-        it("should work with RxVO", () => {
-            const _vo = new RxVO({schemas: [basicCollection]});
-            const _p = new TxPipe(_vo);
-        });
+    });
+
+    describe("TXPipe Error Handling", () => {
+        it("should detect validation errors", (done) => {
+            const _tx = new TxPipe({
+                type: "string",
+            }, () => false);
+
+            _tx.subscribe({
+                next: (d) => {
+                 done("expected data validation error");
+                },
+                error: (e) => {
+                    expect(e.error[0].message).toEqual("should be string");
+                    done();
+                }
+            });
+
+            _tx.exec(true);
+        })
     });
 });

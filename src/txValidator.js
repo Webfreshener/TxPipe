@@ -140,17 +140,19 @@ export class TxValidator {
     }
 
     /**
-     * Performs validation of value without effecting state
+     * Performs schema validation of value
      * @param value
      */
     validate(value) {
         const $id = AjvWrapper.getSchemaID(this.schema[0] || this.schema);
-        return _validators.get(this).exec($id, value);
-    }
-
-    test(value) {
-        const $id = AjvWrapper.getSchemaID(this.schema[0] || this.schema);
-        return _validators.get(this).exec($id, value);
+        const __ = _validators.get(this).exec($id, value);
+        if (this.errors) {
+            _observers.get(this).error({
+                error: this.errors,
+                data: value,
+            });
+        }
+        return __;
     }
 
     /**
@@ -163,7 +165,6 @@ export class TxValidator {
         }
 
         const _t = this.validate(data);
-
         if (_t === true) {
             _models.set(this, data);
             _observers.get(this).next(data);

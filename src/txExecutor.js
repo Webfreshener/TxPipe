@@ -34,9 +34,10 @@ export class TxExecutor {
      * @private
      */
     static exec(callbacks, data) {
+        let _value;
         const _it = _cbIterator(callbacks);
         let _done = false;
-        let _value = data;
+        _value = data;
         while (!_done) {
             let {done, value} = _it.next(_value);
             if (!(_done = done)) {

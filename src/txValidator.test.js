@@ -1,6 +1,7 @@
 import {TxValidator} from "./txValidator";
 import {basicModel, nameRequiredSchema} from "../fixtures/PropertiesModel.schemas";
 import {default as DefaultVO} from  "./schemas/default-vo.schema";
+
 describe("TxValidator Test Suite", () => {
    describe("Schema Handling", () => {
       it("should accept stand-alone schema", () => {
@@ -14,11 +15,13 @@ describe("TxValidator Test Suite", () => {
           expect(_txV.errors).toEqual(null);
       });
    });
+
    describe("TxValidator.validateSchemas", () => {
       it("should pass valid schema", () => {
          expect(TxValidator.validateSchemas(nameRequiredSchema)).toEqual(true);
       })
    });
+
    describe("basic validation", () => {
       let _txV;
       beforeEach(() => {
@@ -28,23 +31,20 @@ describe("TxValidator Test Suite", () => {
          });
       });
       it("should validate data", () => {
-         _txV.model = {
+         const model = {
             name: "test",
             active: true,
             age: 99,
          };
          expect(_txV.errors === null).toBe(true);
-         _txV.model = {
-            name: "test",
-            active: "true",
-            foo: "bar",
-            age: "99",
-         };
+
+         // set age to invalid data type
+         _txV.model = Object.assign({}, model, {age: "99"});
          expect(_txV.errors === null).toBe(false);
       });
    });
 
-   // TODO: find other use-case for meta besides Schema Draft 04 (no longer supported)
+   // TODO: find other use-case for meta besides disco'd Schema Draft 04
    describe.skip("validation with meta", () => {
       let _txV;
       beforeEach(() => {

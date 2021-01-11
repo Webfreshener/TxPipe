@@ -132,7 +132,14 @@ export class TxPipe {
 
         // define exec in constructor to ensure method visibility
         Object.defineProperty(this, "exec", {
-            value: (data) => _pipes.get(this).exec(data),
+            // value: (data) => _pipes.get(this).exec(data),
+            value: (data) => {
+                try {
+                    return _pipes.get(this).exec(data);
+                } catch (e) {
+                    console.error(e);
+                }
+            },
             enumerable: true,
             configurable: false,
         });
@@ -257,9 +264,11 @@ export class TxPipe {
         const _f = new Function("$scope", "$cb",
             [
                 "return (function* (data) { ",
+                "try {",
                 Object.keys(_fill)
                     .map((_) => `yield data=($cb[${_}].bind($scope))(data)`)
                     .join("; "),
+                "} catch (e) { $scope.error(e); }",
                 "}).bind($scope);",
             ].join(" ")
         );
@@ -274,7 +283,7 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txMerge(pipeOrPipes, pipeOrSchema = {schemas: [DefaultVOSchema]}) {
-        const _out = this.txPipe(pipeOrSchema);
+        const _out = new TxPipe(pipeOrSchema);
         _pipes.get(this).listeners = [
             ..._pipes.get(this).listeners,
             // -- feeds output of map to listeners array
@@ -284,7 +293,8 @@ export class TxPipe {
                     _p.subscribe((d) => {
                         // -- all pipes now write to output tx
                         _out.txWrite(d.toJSON ? d.toJSON() : d);
-                    })
+                    });
+                    return _p;
                 })
         ];
         // -- returns output tx for observation
@@ -340,10 +350,10 @@ export class TxPipe {
      * @returns {TxPipe}
      */
     txThrottle(rate) {
-        const _intvl = _pipes.get(this).tO;
+        const _ivl = _pipes.get(this).tO;
 
-        if (_intvl) {
-            _intvl.clearInterval();
+        if (_ivl) {
+            _ivl.clearInterval();
         }
 
         if (rate >= 0) {
@@ -479,6 +489,7 @@ export class PipeListener {
      */
     error(e) {
         // sends error notification through out validator's observable
+        console.log("error via error method  in txpipe");
         _observers.get(this.out).error(e);
     }
 
@@ -518,9 +529,19 @@ export class PipeListener {
             }
         }
 
+        let _t, _type;
+
         // capture output of callback
-        const _t = _pipes.get(_pipes.get(this)).exec(data);
-        const _type = typeof _t;
+        try {
+            _t = _pipes.get(this).exec(data); //_pipes.get(_pipes.get(this)).exec(data);
+            _type = typeof _t;
+        } catch (e) {
+            console.log("error via try/catch in txpipe");
+            return _observers.get(this.out).error({
+                error: e,
+                data: data,
+            });
+        }
 
         // tests if object and if object is writable
         if ((_t instanceof Promise) || ((_type === "function") || (_type === "object")) && _target.txWritable) {
@@ -565,14 +586,16 @@ export class PipeListener {
 
             _out(_t);
         } else {
-            // string values are treated as error messages
+            /*
+                string values are treated as error messages
+                boolean & numeric values get safely ignored
+             */
             if ((typeof _t) === "string") {
                 _observers.get(this.out).error({
                     error: _t,
                     data: data,
                 });
             }
-            // boolean & numeric values get safely ignored
         }
     }
 
