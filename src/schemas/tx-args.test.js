@@ -1,13 +1,14 @@
 import {TxValidator} from "../txValidator";
 import {basicModel} from "../../fixtures/PropertiesModel.schemas";
 import {default as TxArgsSchema} from "./tx-args.schema";
+
 describe("Tx-Args Schema Tests", () => {
     let _txValidator;
     beforeEach(() => {
         try {
             _txValidator = new TxValidator(TxArgsSchema);
         } catch (e) {
-            console.log(e);
+            console.error(e);
         }
     });
 
@@ -26,23 +27,20 @@ describe("Tx-Args Schema Tests", () => {
         expect(_txValidator.errors).toEqual(null);
     });
 
-    it("should reject executable object", () => {
-        expect(
-            _txValidator.validate({schema: {}, exec: () => {}})
-        ).toEqual(false);
+    it("should reject restricted keywords", () => {
+        const node = TxArgsSchema.definitions.Schema.properties;
+        const keys = Object.keys(node);
+        const _restricted = keys.filter((p) => node[p].hasOwnProperty("not"));
+        const _schema = {schema: {}};
+        const functor = () => {};
+        let value;
 
-    });
+        expect(_restricted.indexOf("exec")).toBeGreaterThan(-1);
 
-    // it("should reject executable array", () => {
-    //     expect(
-    //         _txValidator.validate([{schema: {}, exec: () => {}}])
-    //     ).toEqual(false);
-    //
-    // });
-
-    it("should reject iterable object", () => {
-        expect(
-            _txValidator.validate({schema: {}, iterate: () => {}, loop: () => {}})
-        ).toEqual(false);
+        for (let idx = 0; idx < _restricted.length; idx++) {
+            value = Object.assign({}, _schema);
+            value[_restricted[idx]] = functor;
+            expect(TxValidator.validateSchemas(value)).toEqual(false);
+        }
     });
 });

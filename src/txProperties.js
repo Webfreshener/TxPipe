@@ -24,7 +24,7 @@ SOFTWARE.
 
 ############################################################################ */
 import {TxExecutor} from "./txExecutor";
-import {TxValidator} from "./txValidator";
+import {_observers, TxValidator} from "./txValidator";
 
 /**
  *
@@ -32,7 +32,8 @@ import {TxValidator} from "./txValidator";
 export class TxProperties {
     static init(txPipe, properties) {
         const {callbacks, inSchema, outSchema, txSchemas, vo, pOS, _pipes} = properties;
-        return Object.defineProperties({}, {
+        const _txP = {};
+        return Object.defineProperties(_txP, {
             callbacks: {
                 value: callbacks,
                 enumerable: true,
@@ -49,7 +50,16 @@ export class TxProperties {
                 configurable: false,
             },
             exec: {
-                value: (__) => TxExecutor.exec(callbacks, __),
+                value: (data) => {
+                    try {
+                        return TxExecutor.exec(callbacks, data);
+                    } catch (e) {
+                        _observers.get(_txP.out).error({
+                            error: e,
+                            data: data,
+                        });
+                    }
+                },
                 enumerable: false,
                 configurable: false,
             },
@@ -92,4 +102,4 @@ export class TxProperties {
             }
         });
     }
-};
+}

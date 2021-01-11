@@ -146,9 +146,13 @@ export class AjvWrapper {
 
         try {
             _res = this.$ajv.validate(path, value);
+            if (this.$ajv.errors) {
+                return false; //JSON.stringify(this.$ajv.errors);
+            }
         } catch (e) {
             return e.toString();
         }
+
 
         return _res;
     }

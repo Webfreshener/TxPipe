@@ -104,7 +104,6 @@ export default {
             $id: "#/definitions/once",
             type: "object",
             required: ["once"],
-            // additionalProperties: false,
             properties: {
                 once: {
                     oneOf: [{

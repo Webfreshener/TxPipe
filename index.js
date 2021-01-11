@@ -1,2 +1,1 @@
-module.exports.TxPipe = require('./dist/txpipe.node').TxPipe.TxPipe;
-module.exports.TxValidator = require('./dist/txpipe.node').TxPipe.TxValidator;
+module.exports = require('./dist/txpipe.node').TxPipe;

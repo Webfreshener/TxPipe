@@ -1,6 +1,17 @@
 import {fill, castToExec} from "./txUtils";
-import {default as InputSchema} from "../fixtures/input.schema";
 import {TxPipe} from "./txPipe";
+import {TxValidator} from "./txValidator";
+const _schema = {
+    "$id": "root#",
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+        "name": {
+            "type": "string"
+        }
+    }
+};
 
 describe("TxUtils Tests", () => {
     describe("castToExec tests", () => {
@@ -14,11 +25,20 @@ describe("TxUtils Tests", () => {
             });
         });
         describe("iterator handling", () => {
-            it("it should cast array to iterator", () => {
+            it("should cast array to iterator", () => {
                 const _res = castToExec([() => "ok"]);
                 expect(_res instanceof TxPipe).toBe(true);
                 expect(JSON.stringify(_res.exec([1, 2, 3]))).toEqual("[\"ok\",\"ok\",\"ok\"]");
             });
+
+            it("should iterate schemas", () => {
+                const _res = castToExec([_schema]);
+                expect(_res.exec).toBeDefined()
+                expect((typeof _res.exec) === "function").toBeTruthy();
+                expect(_res.exec([{name: "Testing"}])).toEqual([{name: "Testing"}]);
+                expect(_res.exec([{badKey: "Testing"}])).toEqual([]);
+            });
+
             it("should exec", () => {
                 const _res = castToExec([() => "ok"]);
                 expect(JSON.stringify(new TxPipe(_res).exec([1, 2, 3]))).toEqual("[\"ok\",\"ok\",\"ok\"]");
@@ -26,38 +46,13 @@ describe("TxUtils Tests", () => {
         });
         describe("schema handling", () => {
             it("should accept json-schema", () => {
-                const _s = {
-                    "$id": "root#",
-                    "$schema": "http://json-schema.org/draft-07/schema#",
-                    "type": "object",
-                    "required": ["name"],
-                    "properties": {
-                        "name": {
-                            "type": "string"
-                        }
-                    }
-                };
-                const _res = castToExec(_s);
-                expect(_res.exec({foo: "bar"})).toBe(false);
-            });
-            it("should validate complex schemas", () => {
-                expect((castToExec(InputSchema).exec({foo: "bar"}))).toBe(false);
-                expect((castToExec(InputSchema).exec({on: {foo: "bar"}}))).toBe(false);
-                const _ = castToExec(InputSchema);
-                const _data = {
-                    on: {
-                        events: ["bar"],
-                        emitter: {
-                            _eventsCount: 0,
-                            _events: {},
-                        },
-                    },
-                };
-                const _res = _.exec(_data);
+                const _res = castToExec(_schema);
 
-                expect(_.errors).toEqual(null);
-                expect(_res).toEqual(_data);
-            })
+                expect(_res.exec).toBeDefined()
+                expect((typeof _res.exec) === "function").toBeTruthy();
+                expect(_res.schema).toBeDefined();
+                expect(_res.errors).toBeDefined();
+            });
         })
     });
 

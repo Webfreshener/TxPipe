@@ -98,7 +98,7 @@ export class TxBehaviorSubject {
             // if is raw function, we pass straight in as `next`
             _subRefs.push(_o.onNext.subscribe(handler));
         } else {
-            // init's observer handlers if defined on passed `func` object
+            // inits observer handlers if defined on passed `func` object
             [
                 {call: "onNext", func: "next"},
                 {call: "onError", func: "error"},

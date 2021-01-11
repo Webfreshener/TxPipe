@@ -1,4 +1,3 @@
-import {TxExecutor} from "./txExecutor";
 import {TxPipe} from "./txPipe";
 
 const _iterators = new WeakMap();
@@ -17,27 +16,34 @@ export class TxIterator {
 
     loop(records) {
         if (!Array.isArray(records)) {
-            return "iterators accept iterable values only"
+            throw {
+                error: {
+                    message: "iterators accept iterable values only"
+                },
+                data: records,
+            }
         }
 
         let _res = [];
-
         records.forEach(
-            (_) => {
-                const _it = _pipes.get(this).txYield(_);
+            (__) => {
+                const _it = _pipes.get(this).txYield(__);
                 let _done = false;
-                let _value = _;
+                let _value = __;
                 while (!_done) {
-                    let {done, value} = _it.next(_value);
-                    if (!(_done = done)) {
-                        _value = value;
+                    try {
+                        let {done, value} = _it.next(_value);
+                        if (!(_done = done)) {
+                            _value = value;
+                        }
+                    } catch (e) {
+                        _value = void 0;
                     }
                 }
 
-                if (_value) {
+                if (_value !== void 0) {
                     _res[_res.length] = _value;
                 }
-
             });
 
         return _res;

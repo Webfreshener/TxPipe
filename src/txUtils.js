@@ -28,6 +28,10 @@ import {TxPipe} from "./txPipe";
 import {TxValidator} from "./txValidator";
 import {default as DefaultVOSchema} from "./schemas/default-vo.schema"
 
+/**
+ * provides default schema and pass through execution
+ * @type {{schema: {$schema: string, $id: string}, exec: (function(*): *)}}
+ */
 const DefaultPipeTx = {
     schema: DefaultVOSchema,
     exec: (d) => d,
@@ -61,39 +65,37 @@ export const castToExec = (obj) => {
         return DefaultPipeTx;
     }
 
-    // TxIterator...
-    if (
-        (obj["loop"] && !(obj instanceof TxIterator)) ||
-        (Array.isArray(obj) && !(obj[0] instanceof TxValidator))
-    ) {
-
+    if ((!(obj instanceof TxIterator) && !Array.isArray(obj)) && obj["loop"]) {
         obj = new TxIterator(...obj);
     }
 
-    if (obj instanceof TxIterator) {
-        const _it = obj;
-        obj = {
-            exec: (d) => {
-                const _o = _it.loop ? _it.loop(d) : _it.exec ? _it.exec(d) :
-                    "iteration executor not found";
-                return _o
-            },
-        };
+    if (Array.isArray(obj)) {
+        let _k = 0;
+        obj.forEach((o) => {
+            if (TxValidator.validateSchemas(o)) {
+                obj[_k] = new TxValidator(o);
+            }
+            _k++;
+        });
+        obj = new TxIterator(...obj);
 
-        return new TxPipe(obj);
     }
 
+    if (obj instanceof TxIterator) {
+        return new TxPipe({
+            exec: (d) => obj.loop(d),
+        });
+    }
 
     // -- if is pipe config item, we normalize for intake
     if ((typeof obj) === "function") {
         return Object.assign({}, DefaultPipeTx, {exec: obj});
     }
 
-    // -- if is pipe config item, we normalize for intake
+    // -- if is pipe norm,normalized config item, we pass in for intake
     if ((typeof obj.exec) === "function") {
         return Object.assign({}, DefaultPipeTx, obj);
     }
-
 
     // -- if TxPipe, our work here is already done
     if (obj instanceof TxPipe) {
@@ -105,16 +107,16 @@ export const castToExec = (obj) => {
         obj = new TxValidator(obj);
     }
 
-    // -- wraps Validators as Exec'bles
+    // -- wraps Validators as executable
     if ((typeof obj["validate"]) === "function") {
-        // return Object.assign({}, DefaultValidatorTx, obj);
         return Object.defineProperties({}, {
             exec: {
                 value: (d) => {
-                    const _res = obj["validate"](d);
-                    if (!_res || (typeof _res) === "string") {
-                        return _res;
+                    obj["validate"](d);
+                    if (obj.errors) {
+                        throw obj.errors;
                     }
+
                     return d;
                 },
                 enumerable: true,
@@ -142,14 +144,14 @@ export const castToExec = (obj) => {
  * @param cb
  * @returns {function(*): any}
  */
-export const handleAsync = (cb) => (async (d) => await new Promise(
-    (resolve) => d.then((_) => resolve(cb(_)))
-        .catch((e) => {
-            return JSON.stringify(e);
-        })
-).catch((e) => {
-    return JSON.stringify(e);
-}));
+export const handleAsync = (cb) => (
+    async (d) => await new Promise(
+        (resolve) => d.then((_) => resolve(cb(_)))
+            .catch((e) => {
+                throw e;
+            })
+    ).catch((e) => { throw e; })
+);
 
 /**
  *
