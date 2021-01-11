@@ -1,0 +1,69 @@
+{
+  "name": "txpipe",
+  "version": "1.0.0-beta.2",
+  "description": "Reactive Transaction Pipes with JSON-Schema Validation",
+  "main": "index.js",
+  "scripts": {
+    "build-test": "webpack --mode development; npm test",
+    "build": "webpack --mode production",
+    "docs": "./node_modules/.bin/esdoc",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Webfreshener/txpipe.git"
+  },
+  "keywords": [
+    "transaction",
+    "pipe",
+    "json-schema",
+    "lambda",
+    "validation"
+  ],
+  "author": {
+    "name": "Van Schroeder",
+    "email": "van@webfreshener.com",
+    "url": "https://github.com/vanschroeder"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Webfreshener/txpipe/issues"
+  },
+  "homepage": "https://github.com/Webfreshener/txpipe#readme",
+  "dependencies": {
+    "ajv": "^7.0.2",
+    "rxjs": "^6.6.3",
+    "rxjs-compat": "^6.6.3"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.12.10",
+    "@babel/core": "^7.12.10",
+    "@babel/plugin-transform-runtime": "^7.12.10",
+    "@babel/preset-env": "^7.12.11",
+    "@babel/runtime": "^7.12.5",
+    "babel-core": "^6.26.3",
+    "babel-loader": "^8.2.2",
+    "chai": "^4.2.0",
+    "codacy-coverage": "^3.4.0",
+    "deep-equal": "^1.1.1",
+    "es6-weak-map": "^2.0.2",
+    "esdoc": "^1.1.0",
+    "esdoc-accessor-plugin": "^1.0.0",
+    "esdoc-exclude-source-plugin": "^1.0.0",
+    "esdoc-standard-plugin": "^1.0.0",
+    "jest": "^26.6.2",
+    "jest-babel-istanbul": "^0.1.0",
+    "jest-each": "^26.6.2",
+    "jshint": "^2.12.0",
+    "jsonpath": "^1.0.1",
+    "lodash.merge": "^4.6.2",
+    "node-fetch": "^2.6.1",
+    "object.assign": "^4.1.2",
+    "ofs-utils": "^1.0.0",
+    "rxvo": "^1.0.2",
+    "weakmap": "0.0.6",
+    "webpack": "^4.44.2",
+    "webpack-cli": "^3.3.12",
+    "webpack-rxjs-externals": "^2.0.0"
+  }
+}
