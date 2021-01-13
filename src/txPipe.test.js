@@ -38,6 +38,17 @@ describe("TxPipe tests", () => {
 
         });
 
+        it("should not exec until called upon", () => {
+            const _cb = jest.fn();
+            const _p = new TxPipe({
+                    type: "string",
+                },
+                async () => Promise.resolve(_cb())
+            );
+            _p.exec("ok");
+            expect(_cb).toBeCalledTimes(1);
+        })
+
         it("should work as a Promise", (done) => {
             const _p = new TxPipe(..._pipesOrSchemas);
             _p.txPromise(data).then((res) => {
