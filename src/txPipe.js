@@ -489,7 +489,6 @@ export class PipeListener {
      */
     error(e) {
         // sends error notification through out validator's observable
-        console.log("error via error method  in txpipe");
         _observers.get(this.out).error(e);
     }
 

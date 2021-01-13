@@ -25,4 +25,3 @@ SOFTWARE.
 ############################################################################ */
 export {TxPipe as TxPipe} from './txPipe';
 export {TxValidator as TxValidator} from './txValidator';
-// export {TxWorkflow} from './txWorkflow';

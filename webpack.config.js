@@ -1,15 +1,16 @@
 const path = require("path");
 const webpackRxjsExternals = require("webpack-rxjs-externals");
+
 module.exports = [{
     externals: [
-        webpackRxjsExternals(),
+        // webpackRxjsExternals(),
     ],
-	output: {
+    output: {
         path: path.join(__dirname, "dist"),
         filename: 'txpipe.js',
-		libraryTarget: "umd",
-		library: "TxPipe",
-	},
+        libraryTarget: "window",
+        library: "TxPipe",
+    },
     module: {
         rules: [
         ],
