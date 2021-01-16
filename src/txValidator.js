@@ -27,6 +27,7 @@ import {AjvWrapper} from "./_ajvWrapper";
 import {TxBehaviorSubject} from "./txBehaviorSubject";
 import {default as TxArgs} from "./schemas/tx-args.schema";
 import {default as DefaultVO} from "./schemas/default-vo.schema";
+
 const _models = new WeakMap();
 const _validators = new WeakMap();
 export const _observers = new WeakMap();
@@ -90,7 +91,7 @@ export class TxValidator {
         }
 
         Object.defineProperty(this, "schema", {
-            value: TxValidator.deriveSchema(schemaOrConfig) || {schemas:[DefaultVO]},
+            value: TxValidator.deriveSchema(schemaOrConfig) || {schemas: [DefaultVO]},
             enumerable: true,
         });
 
@@ -119,6 +120,9 @@ export class TxValidator {
      * @returns {boolean}
      */
     get isFrozen() {
+        if ((typeof _models.get(this)) !== "object") {
+            return false;
+        }
         return Object.isFrozen(_models.get(this));
     }
 
