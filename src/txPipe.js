@@ -62,16 +62,7 @@ export class TxPipe {
 
         // TODO: solve this issue with async methods to remove kludge
         if (pipesOrVOsOrSchemas[0] instanceof Function) {
-            // tests async for nodejs then for Browser JS
-            if ((typeof (pipesOrVOsOrSchemas[0]()).then === "function") ||
-                pipesOrVOsOrSchemas[0].constructor.name === "AsyncFunction") {
-                pipesOrVOsOrSchemas.splice(0, 0, {
-                    $id: "root#",
-                    $schema: "http://json-schema.org/draft-07/schema#",
-                    type: "object",
-                    properties: {},
-                });
-            }
+            pipesOrVOsOrSchemas.splice(0, 0, DefaultVOSchema);
         }
 
         pipesOrVOsOrSchemas = mapArgs(...pipesOrVOsOrSchemas);
@@ -529,13 +520,23 @@ export class PipeListener {
         }
 
         let _t, _type;
+        const _out = (_) => {
+            // else we set the model for validation
+            try {
+                this.out.model = _.toJSON ? _.toJSON() : _;
+            } catch (e) {
+                _observers.get(this.out).error({
+                    error: e,
+                    data: data,
+                });
+            }
+        };
 
         // capture output of callback
         try {
             _t = _pipes.get(this).exec(data); //_pipes.get(_pipes.get(this)).exec(data);
             _type = typeof _t;
         } catch (e) {
-            console.log("error via try/catch in txpipe");
             return _observers.get(this.out).error({
                 error: e,
                 data: data,
@@ -544,18 +545,6 @@ export class PipeListener {
 
         // tests if object and if object is writable
         if ((_t instanceof Promise) || ((_type === "function") || (_type === "object")) && _target.txWritable) {
-            const _out = (_) => {
-                // else we set the model for validation
-                try {
-                    this.out.model = _.toJSON ? _.toJSON() : _;
-                } catch (e) {
-                    _observers.get(this.out).error({
-                        error: e,
-                        data: data,
-                    });
-                }
-            };
-
             if (_t instanceof Promise) {
                 return _t.then((_) => {
                     _out(_)
@@ -573,29 +562,17 @@ export class PipeListener {
                 if (__ instanceof Promise) {
                     return __.then((_) => {
                         _out(_)
-                    })
-                        .catch((e) => {
-                            _observers.get(this.out).error({
-                                error: e,
-                                data: data,
-                            });
+                    }).catch((e) => {
+                        _observers.get(this.out).error({
+                            error: e,
+                            data: data,
                         });
+                    });
                 }
             }
-
-            _out(_t);
-        } else {
-            /*
-                string values are treated as error messages
-                boolean & numeric values get safely ignored
-             */
-            if ((typeof _t) === "string") {
-                _observers.get(this.out).error({
-                    error: _t,
-                    data: data,
-                });
-            }
         }
+
+        _out(_t);
     }
 
     subscribe(handler) {
