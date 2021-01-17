@@ -54,10 +54,14 @@ export class TxProperties {
                     try {
                         return TxExecutor.exec(callbacks, data);
                     } catch (e) {
-                        _observers.get(_txP.out).error({
+                        throw {
                             error: e,
                             data: data,
-                        });
+                        };
+                        // _observers.get(_txP.out).error({
+                        //     error: e,
+                        //     data: data,
+                        // });
                     }
                 },
                 enumerable: false,

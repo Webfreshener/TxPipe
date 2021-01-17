@@ -2,7 +2,7 @@ import {TxValidator} from "./txValidator";
 import {TxPipe} from "./txPipe";
 import {basicCollection} from "../fixtures/PropertiesModel.schemas";
 import {default as data} from "../fixtures/pipes-test.data";
-import {default as _pipesOrSchemas} from"../fixtures/pipes-or-schema"
+import {default as _pipesOrSchemas} from "../fixtures/pipes-or-schema"
 
 describe("TxPipe API Tests", () => {
     let _p;
@@ -13,18 +13,42 @@ describe("TxPipe API Tests", () => {
     test("TxPipe schema", () => {
         const _p = (new TxPipe(..._pipesOrSchemas)).txSchemas;
         expect(JSON.stringify(_p[0])).toEqual(
-            JSON.stringify(_pipesOrSchemas[0].schema)
+            JSON.stringify(_pipesOrSchemas[0])
         );
     });
 
-    test("TxPipe exec", () => {
-        const _p = new TxPipe(..._pipesOrSchemas);
-        expect(_p.exec(data).length).toEqual(3);
-        expect(Object.keys(_p.txTap()).length).toEqual(0);
+    describe("TxPipe exec", () => {
+        it("should not be an observable", (done) => {
+            const _p = new TxPipe(..._pipesOrSchemas);
+            _p.subscribe({
+                next: () => {
+                    done("should not be observable if called with exec");
+                },
+                error: () => {
+                    done("should not be observable if called with exec");
+                }
+            });
 
+            expect(_p.exec(data).length).toEqual(3);
+            expect(Object.keys(_p.txTap()).length).toEqual(0);
+            setTimeout(() => done(), 10);
+        });
+
+        it("should not be a promise", () => {
+            expect(_p.exec(data).then).toBeUndefined();
+        });
+
+        it("should throw", () => {
+            const _p = new TxPipe(..._pipesOrSchemas);
+            try {
+                _p.exec("invalid value");
+            } catch (e) {
+                expect(e.error[0].message).toEqual("should be array");
+            }
+        });
     });
 
-    it("should stop if a pipe returns false", (done) => {
+    it("should send error notification if a pipe returns false", (done) => {
         const _p = new TxPipe(
             ...[
                 ..._pipesOrSchemas,
@@ -48,7 +72,6 @@ describe("TxPipe API Tests", () => {
         });
 
         _p.txWrite(data[0]);
-        setTimeout(done, 200);
     });
 
     it("should provide errors", (done) => {
