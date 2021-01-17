@@ -125,11 +125,7 @@ export class TxPipe {
         Object.defineProperty(this, "exec", {
             // value: (data) => _pipes.get(this).exec(data),
             value: (data) => {
-                try {
-                    return _pipes.get(this).exec(data);
-                } catch (e) {
-                    console.error(e);
-                }
+                return _pipes.get(this).exec(data);
             },
             enumerable: true,
             configurable: false,

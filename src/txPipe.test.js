@@ -28,7 +28,7 @@ describe("TXPipe Error Handling", () => {
 
         _tx.subscribe({
             next: (d) => {
-                done("expected data validation error");
+                done("should have errored");
             },
             error: (e) => {
                 expect(e.error[0].message).toEqual("should be string");
@@ -36,7 +36,7 @@ describe("TXPipe Error Handling", () => {
             }
         });
 
-        _tx.exec(true);
+        _tx.txWrite(true);
     })
 });
 
@@ -87,7 +87,6 @@ describe("TxPipe Tests", () => {
                 if ((++_cnt) === 2) {
                     done();
                 }
-                console.log(_cnt);
             },
             error: (e) => {
                 console.trace(e);
